@@ -1,0 +1,40 @@
+pagvpn:
+  run:
+    - -ti
+    - --rm
+    - --name 
+    - pagvpn
+    - --hostname
+    - pagvpn
+    - --cap-add
+    - NET_ADMIN
+    - -e
+    - PAG_USER
+    - -e
+    - PAG_PIN
+    - -e
+    - PAG_CERT_PASS
+    - -e
+    - JIRA_USER
+    - -e
+    - JIRA_PASS
+    - -p
+    - 8888:8888
+    - -p
+    - 10022:22
+    - -p
+    - 18000:8000
+    - -p
+    - 18089:8089
+    - -v
+    - paghome:/root
+    - -v
+    - ~:/exchange
+    - git.cocus.com:5005/d/porsche-vpn
+  exec:
+    - -ti
+    - pagvpn
+    - /bin/bash
+  start:
+    - -ai
+    - pagvpn

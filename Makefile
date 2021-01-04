@@ -1,4 +1,4 @@
-IMAGE_NAME=golang:alpine
+IMAGE_NAME=golang:1.15.6
 CONTAINER_NAME=godev
 #Environment settings for cross compilation
 #Ref: https://www.digitalocean.com/community/tutorials/how-to-build-go-executables-for-multiple-platforms-on-ubuntu-16-04
@@ -6,15 +6,16 @@ ENV_OSX=-e GOOS=darwin -e GOARCH=amd64
 ENV_WIN=-e GOOS=windows -e GOARCH=amd64
 ENV_LIN=-e GOOS=linux -e GOARCH=amd64
 #this is there the src files are located, within the container
-WORKDIR=/usr/src/
+#the name of the directory might be used by GO for the name of the executable
+WORKDIR=/usr/src/docker-starter
 #this is where build files are to be stored, within the container
 BUILDSDIR=/usr/local/bin
 VOL_SRC="${PWD}/src:${WORKDIR}"
 VOL_BUILDS="${PWD}/builds:${BUILDSDIR}"
 
-default: build_osx
+default: osx
 
-all: clean pull build_win build_osx build_linux
+all: clean pull build_all
 
 clean:
 	@echo "> Removing dev container"
@@ -24,22 +25,25 @@ clean:
 	find builds/ -type f -delete
 
 pull:
-	#docker login
+	# this command might require a "docker login" to be performed
 	docker pull $(IMAGE_NAME) | true
 
-build_osx:
-	@echo "> Compiling executable for OSX within ${BUILDSDIR}/osx/"
-	docker run --rm --name ${CONTAINER_NAME} ${ENV_OSX} -v ${VOL_SRC} -v ${VOL_BUILDS} -w ${WORKDIR} ${IMAGE_NAME} go build -o ${BUILDSDIR}/osx/
+build_all:
+	@echo "> Compiling executable for all targets within ${BUILDSDIR}/ using src/Makefile"
+	docker run --rm --name ${CONTAINER_NAME} -v ${VOL_SRC} -v ${VOL_BUILDS} -w ${WORKDIR} ${IMAGE_NAME} make all
 
-build_win:
-	@echo "> Compiling executable for Windows within ${BUILDSDIR}/windows/"
-	docker run --rm --name ${CONTAINER_NAME} ${ENV_WIN} -v ${VOL_SRC} -v ${VOL_BUILDS} -w ${WORKDIR} ${IMAGE_NAME} go build -o ${BUILDSDIR}/windows/
+osx:
+	@echo "> Compiling executable for OSX within ${BUILDSDIR}/osx/ using src/Makefile"
+	docker run --rm --name ${CONTAINER_NAME} -v ${VOL_SRC} -v ${VOL_BUILDS} -w ${WORKDIR} ${IMAGE_NAME} make osx
 
-build_linux:
-	@echo "> Compiling executable for Linux within ${BUILDSDIR}/linux/"
-	docker run --rm --name ${CONTAINER_NAME} ${ENV_LIN} -v ${VOL_SRC} -v ${VOL_BUILDS} -w ${WORKDIR} ${IMAGE_NAME} go build -o ${BUILDSDIR}/linux/
+win:
+	@echo "> Compiling executable for Windows within ${BUILDSDIR}/windows/ using src/Makefile"
+	docker run --rm --name ${CONTAINER_NAME} -v ${VOL_SRC} -v ${VOL_BUILDS} -w ${WORKDIR} ${IMAGE_NAME} make win
+linux:
+	@echo "> Compiling executable for Linux within ${BUILDSDIR}/linux/ using src/Makefile"
+	docker run --rm --name ${CONTAINER_NAME} -v ${VOL_SRC} -v ${VOL_BUILDS} -w ${WORKDIR} ${IMAGE_NAME} make linux
 
 dev:
 	@echo "> Starting interactive container to perform local test"
 	@echo "> You can execute 'go run main.go'"
-	docker run --rm -ti -v ${VOL_SRC} -w ${WORKDIR} ${IMAGE_NAME}
+	docker run --rm -ti -v ${VOL_SRC} -v ${VOL_BUILDS} -w ${WORKDIR} ${IMAGE_NAME}
