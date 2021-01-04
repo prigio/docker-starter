@@ -1,3 +1,4 @@
+#PAGVPN container
 pagvpn:
   run:
     - -ti
@@ -38,29 +39,7 @@ pagvpn:
   start:
     - -ai
     - pagvpn
-splunk80:
-  run:
-    - -d
-    - --name
-    - splunk80
-    - --hostname
-    - splunk80-docker
-    - -p
-    - 38080:8000
-    - -v
-    - .:/exchange
-    - -e
-    - SPLUNK_START_ARGS=--accept-license
-    - -e
-    - SPLUNK_PASSWORD=splunked
-    - splunk/splunk:8.0
-  exec:
-    - -ti
-    - splunk80
-    - /bin/bash
-  start:
-    - -ai
-    - splunk80
+#Splunk v8.1.1 container
 splunk81:
   run:
     - -d
