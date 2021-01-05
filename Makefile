@@ -1,5 +1,5 @@
 IMAGE_NAME=golang:1.15.6
-CONTAINER_NAME=godev
+CONTAINER_NAME=golang-dockerstarter
 #Environment settings for cross compilation
 #Ref: https://www.digitalocean.com/community/tutorials/how-to-build-go-executables-for-multiple-platforms-on-ubuntu-16-04
 ENV_OSX=-e GOOS=darwin -e GOARCH=amd64

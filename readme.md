@@ -56,10 +56,26 @@ splunk81:
 The syntax is: 
 
 ```bash
-    docker-starter [-c <config-file-name.yaml>] <container-definition-name> [additional optinal parameters for 'docker run']
+    docker-starter [-c <config-file-name.yaml>] [-l] <container-definition-name> [additional optinal parameters for 'docker run']
 ```
 
-Example:
+### Command-line flags
+
+- `-c Full path` : (optional) full path to a configuration file
+- `-l` : (optional) if provided, the script lists all the available container definitions and the status of the corresponding container, then exits
+
+### Examples
+
+```bash
+  # get list of container definitions, and corresponding status
+  docker-starter -l
+  
+    > Reading configuration file '~/.dockerstarter'
+    > The available container definitions are:
+      - pagvpn       (container status: running)
+      - splunk80     (container status: missing)
+      - splunk81     (container status: stopped)
+```
 
 ```bash
     # start the container definition called "splunk81"
@@ -68,11 +84,13 @@ Example:
     # start the container definition called "pagvpn"
     docker-starter pagvpn
 
-    # start the container splunk80 based on the configuration file ./config.yaml
-    docker-starter -c ./config.yaml splunk80
-
     # start the container definition called "pagvpn" and provide a VPN token code already
     docker-starter pagvpn 123456
+```
+
+```bash
+    # start the container splunk80 based on the configuration file ./config.yaml
+    docker-starter -c ./config.yaml splunk80
 ```
 
 Any command-line parameters after the name of the definition are provided to the container within docker run. So these are all possible: 
