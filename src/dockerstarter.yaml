@@ -1,6 +1,7 @@
 #Save this file within your USER HOME folder. 
 #You can modify the configurations as you see fit
 pagvpn:
+  image: git.cocus.com:5005/d/porsche-vpn
   #PAGVPN container
   run:
     - -ti
@@ -31,6 +32,7 @@ pagvpn:
     - pagvpn
 #Splunk v8.1.1 container
 splunk81:
+  image: splunk/splunk:8.1.1
   run:
     - -d
     - --name=splunk81

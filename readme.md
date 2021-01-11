@@ -21,6 +21,9 @@ A sample configuration is the following, defining the command-line parameters fo
 ```yaml
 #Splunk v8.1.1 container
 splunk81:
+  # the explicit name of the image is optional. 
+  # BUT, if you provide it, the tool will try to 'docker pull' the image if missing
+  image: splunk/splunk:8.1.1
   run:
     - -d
     - --name=splunk81

@@ -22,6 +22,7 @@ const (
 	MISSING string = "missing"
 	STOPPED string = "stopped"
 	RUNNING string = "running"
+	IMAGE_EXISTING string = "image_existing"
 	ERROR string = "error"
 )
 
@@ -240,6 +241,99 @@ func ListConfigs(docker_cmd string) {
 		return
 } 
 
+func DockerPull(docker_cmd string, image_name string, verbose bool) (err error) {	
+	var outb, errb bytes.Buffer	
+	log.Printf("Pulling image '%s'.\n\tIf this fails, you might have to manually perform 'docker login' or 'docker login <registry>'" , image_name)
+	cmd := exec.Command(docker_cmd, "image", "pull", image_name)
+	if verbose {
+		// redirect child's process output to StdOut so that user can see it. 
+		cmd.Stdout = os.Stdout
+	} else {
+		// keep stdout internal
+		cmd.Stdout = &outb
+	}		
+	// this is used to be able to read stderr of the docker command
+	cmd.Stderr = &errb
+	err = cmd.Run()
+	switch err.(type) {
+		case nil:
+			log.Print("Image downloaded")							
+			return nil
+		case *exec.Error:
+		// check if the error was raised at the system level, such as if docker is not installed.
+			log.Printf("An error occurred when executing 'docker pull'\nCommand line arguments were:\n%s", strings.Join(cmd.Args," "))
+			log.Print(errb.String())
+			log.Fatal(err)
+		case *exec.ExitError:
+			// this is raised id the executed command does not return 0
+			exitError, _ := err.(*exec.ExitError)
+			switch {
+				case exitError.ExitCode() == 1 && strings.Contains(errb.String(), "not found"):
+					log.Printf("Image '%s' not found. Docker wrote:\n\t%s", image_name, errb.String())
+					log.Fatal(exitError)
+				default:
+					// check if the error was raised at the system level, such as if docker is not installed.
+					log.Printf("An error occurred when executing 'docker pull'\nCommand line arguments were:\n%s", strings.Join(cmd.Args," "))
+					log.Print(errb.String())
+					log.Fatal(exitError)
+			}
+	}
+	return 
+}
+
+func ImageStatus(docker_cmd string, image_name string, verbose bool) (status string, err error) {
+	var outb, errb bytes.Buffer
+	if verbose {
+		log.Printf("Retrieving information about image '%s'", image_name)
+	}
+
+	cmd := exec.Command(docker_cmd, "image", "inspect", image_name)
+	// Redirect all input and output of the parent to the child process
+	// this is used to be able to read the stdout and stderr of the docker command
+	cmd.Stdout = &outb	
+	cmd.Stderr = &errb
+	err = cmd.Run()
+	switch err.(type) {
+		case nil:
+			// the container is present, need to check if it is running or not
+			var inspect_output interface{}			
+			err = json.Unmarshal(outb.Bytes(), &inspect_output)
+			if err != nil {
+				log.Print("Impossible to convert output of 'docker inspect' to Json")
+				log.Fatal(err)
+				return ERROR, err
+			}
+			_, err = jsonpath.Read(inspect_output, "$[0].Created")
+			if err != nil {
+				log.Print("Error when reading 'docker inspect' output")				
+				log.Fatal(err)
+				return ERROR, err
+			}
+			if verbose {
+				log.Print("Image already existing")
+			}
+			return IMAGE_EXISTING, nil			
+		case *exec.Error:
+		// check if the error was raised at the system level, such as if docker is not installed.
+			log.Printf("An error occurred when executing 'docker inspect'\nCommand line arguments were:\n%s", strings.Join(cmd.Args," "))
+			log.Print(errb.String())
+			log.Fatal(err)
+		case *exec.ExitError:
+			// this is raised id the executed command does not return 0
+			exitError, _ := err.(*exec.ExitError)
+			switch {
+				case exitError.ExitCode() == 1 && (strings.Contains(errb.String(), "Error: No such image") || strings.Contains(errb.String(), "Error: No such object")):
+					// the image is missing					
+					return MISSING, nil
+				default:
+					// check if the error was raised at the system level, such as if docker is not installed.
+					log.Printf("An error occurred when executing 'docker inspect'\nCommand line arguments were:\n%s", strings.Join(cmd.Args," "))
+					log.Print(errb.String())
+					log.Fatal(exitError)
+			}
+	}
+	return ERROR, err
+}
 
 func ContainerStatus(docker_cmd string, container_name string, verbose bool) (status string, err error) {
 	var outb, errb bytes.Buffer
@@ -395,8 +489,23 @@ func main() {
 	switch status {
 		case MISSING:
 			// the container is missing, need to "run"
+			if viper.IsSet(container_name + ".image") {
+				// check if the image is actually available
+				// if not, pull it.
+				image_name := viper.GetString(container_name + ".image")
+				if image_status, err := ImageStatus(docker_cmd, image_name, true); err != nil {
+					log.Fatal("%v", err)
+				} else {
+					if image_status == MISSING {
+						if err := DockerPull(docker_cmd, image_name, true); err != nil {
+							log.Fatal("%v", err)
+						}
+					}
+				}
+			}
 			if viper.IsSet(container_name + ".run") {
-				docker_run_args := append(viper.GetStringSlice(container_name + ".run"), additional_args...)					
+				docker_run_args := append(viper.GetStringSlice(container_name + ".run"), additional_args...)				
+				
 				// Append the command-line parameters the user provided to the docker run command, to the ones specified within the config file
 				run_docker_run(docker_cmd, container_name, docker_run_args)
 			} else {
