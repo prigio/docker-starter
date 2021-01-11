@@ -23,18 +23,13 @@ A sample configuration is the following, defining the command-line parameters fo
 splunk81:
   run:
     - -d
-    - --name
-    - splunk81
-    - --hostname
-    - splunk81-docker
-    - -p
-    - 38081:8000
+    - --name=splunk81
+    - --hostname=splunk81
+    - -p=38081:8000
     - -v
     - .:/exchange
-    - -e
-    - SPLUNK_START_ARGS=--accept-license
-    - -e
-    - SPLUNK_PASSWORD=splunked
+    - -e=SPLUNK_START_ARGS=--accept-license
+    - -e=SPLUNK_PASSWORD=splunked
     - splunk/splunk:8.1.1
   exec:
     - -ti
@@ -50,6 +45,7 @@ splunk81:
 - The name of the definition and the `--name` parameter of the container **MUST** be the same, otherwise the tool will not find the container anymore.
 - As of now, the tool attaches its the console's standard-out, -in and -err to the container.
 - The tool **DOES NOT** perform a `docker pull`: you must perform it once before using a container definition
+- Docker configurations can be provided on a single line using format `-x=VALUE` (the `=` sign MUST be there). However, the **volume configurations** MUST be separated on two lines if you desire the expansion of `.` and `~` to continue working. (This is an open issue at the moment: <https://git.cocus.com/bigdata/docker-starter/-/issues/1>).
 
 
 ## Usage

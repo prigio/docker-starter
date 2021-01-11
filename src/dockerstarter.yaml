@@ -1,32 +1,22 @@
-#PAGVPN container
+#Save this file within your USER HOME folder. 
+#You can modify the configurations as you see fit
 pagvpn:
+  #PAGVPN container
   run:
     - -ti
     - --rm
-    - --name 
-    - pagvpn
-    - --hostname
-    - pagvpn
-    - --cap-add
-    - NET_ADMIN
-    - -e
-    - PAG_USER
-    - -e
-    - PAG_PIN
-    - -e
-    - PAG_CERT_PASS
-    - -e
-    - JIRA_USER
-    - -e
-    - JIRA_PASS
-    - -p
-    - 8888:8888
-    - -p
-    - 10022:22
-    - -p
-    - 18000:8000
-    - -p
-    - 18089:8089
+    - --name=pagvpn
+    - --hostname=pagvpn
+    - --cap-add=NET_ADMIN
+    - -e=PAG_USER
+    - -e=PAG_PIN
+    - -e=PAG_CERT_PASS
+    - -e=JIRA_USER
+    - -e=JIRA_PASS
+    - -p=8888:8888
+    - -p=10022:22
+    - -p=18000:8000
+    - -p=18089:8089
     - -v
     - paghome:/root
     - -v
@@ -43,18 +33,14 @@ pagvpn:
 splunk81:
   run:
     - -d
-    - --name
-    - splunk81
-    - --hostname
-    - splunk81-docker
-    - -p
-    - 38081:8000
+    - --name=splunk81
+    - --hostname=splunk81
+    - -p=38081:8000
     - -v
     - .:/exchange
-    - -e
-    - SPLUNK_START_ARGS=--accept-license
-    - -e
-    - SPLUNK_PASSWORD=splunked
+    - -e=SPLUNK_START_ARGS=--accept-license
+    # password for the administration account
+    - -e=SPLUNK_PASSWORD=splunked
     - splunk/splunk:8.1.1
   exec:
     - -ti
