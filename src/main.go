@@ -26,7 +26,7 @@ const (
 	ERROR string = "error"
 )
 
-func run_docker_exec(docker_cmd string, container_name string, docker_exec_args []string) {
+func DockerExec(docker_cmd string, container_name string, docker_exec_args []string) {
 	log.Printf("Attaching an additional session to running container '%s'", container_name)
 	// add "exec" at the beginning of the arguments
 	docker_exec_args = append([]string{"exec"}, docker_exec_args...)
@@ -65,7 +65,7 @@ func run_docker_exec(docker_cmd string, container_name string, docker_exec_args 
 	return
 }
 
-func run_docker_start(docker_cmd string, container_name string, docker_start_args []string) {
+func DockerStart(docker_cmd string, container_name string, docker_start_args []string) {
 	log.Printf("Restarting stopped container '%s'", container_name)
 	docker_start_args = append([]string{"start"}, docker_start_args...)
 	cmd := exec.Command(docker_cmd, docker_start_args...)
@@ -114,14 +114,14 @@ func prepare_docker_cli_arguments(args []string) ([]string, error) {
 
 		if prev_conf == "-v" {
 			// replace ~ and . with their local, absolute counterparts
-			docker_run_args[i], _ = expand_path(curr_conf)
+			docker_run_args[i], _ = ExpandPath(curr_conf)
 		}
 		prev_conf = curr_conf
 	}
 }
 // */
 
-func run_docker_run(docker_cmd string, container_name string, docker_run_args []string) {
+func DockerRun(docker_cmd string, container_name string, docker_run_args []string) {
 	log.Printf("Starting docker container '%s'", container_name)
 	docker_run_args = append([]string{"run"}, docker_run_args...)
 
@@ -129,10 +129,32 @@ func run_docker_run(docker_cmd string, container_name string, docker_run_args []
 	prev_conf := ""
 	for i, curr_conf := range docker_run_args {
 		// if previous conf item is a volume definition flag
-		if prev_conf == "-v" {
+		if prev_conf == "-v" || prev_conf == "--volume" {
 			// replace ~ and . with their local, absolute counterparts
-			docker_run_args[i], _ = expand_path(curr_conf)
+			docker_run_args[i], _ = ExpandPath(curr_conf)
+		} else if strings.HasPrefix(curr_conf, "-v=") || strings.HasPrefix(curr_conf, "-v ") { 
+			// format of config: '-v=host-path:container-path' or '-v host-path:container-path'
+			expanded_path, _ := ExpandPath(curr_conf[3:])
+			docker_run_args[i] = fmt.Sprintf("-v=%s", expanded_path)
+		} else if strings.HasPrefix(curr_conf, "--volume=") || strings.HasPrefix(curr_conf, "--volume ") { 
+				// format of config: '-v=host-path:container-path' or '-v host-path:container-path'
+				expanded_path, _ := ExpandPath(curr_conf[9:])
+				// force the current config to use the format --conf=val to avoid having empty spaces within it
+				docker_run_args[i] = fmt.Sprintf("--volume=%s", expanded_path)
+		} else if prev_conf == "--mount" || strings.HasPrefix(curr_conf, "--mount=") || strings.HasPrefix(curr_conf, "--mount ") { 
+			if strings.HasPrefix(curr_conf, "--mount ") {
+				// replace the empty space with the = sign
+				curr_conf="--mount=" + curr_conf[8:]
+			}
+			if path_pos := strings.Index(curr_conf,"source="); path_pos>=0 {
+				expanded_path, _ := ExpandPath(curr_conf[path_pos + 7:])
+				docker_run_args[i] = fmt.Sprintf("%ssource=%s", curr_conf[0:path_pos], expanded_path)
+			} else if path_pos := strings.Index(curr_conf,"src="); path_pos>=0 {
+				expanded_path, _ := ExpandPath(curr_conf[path_pos + 4:])
+				docker_run_args[i] = fmt.Sprintf("%ssrc=%s", curr_conf[0:path_pos], expanded_path)
+			}
 		}
+
 		prev_conf = curr_conf
 	}
 	
@@ -166,7 +188,7 @@ func run_docker_run(docker_cmd string, container_name string, docker_run_args []
 				log.Fatal(exitError)
 			} else if strings.Contains(errb.String(), "Conflict.") {
 				// the container is already running, try using the exec command
-				run_docker_exec(docker, container_name)
+				DockerExec(docker, container_name)
 			} else { // */
 			log.Printf("Unexpected error by executing 'docker run'. Exit code is %d", exitError.ExitCode())
 			log.Print(errb.String())
@@ -176,7 +198,7 @@ func run_docker_run(docker_cmd string, container_name string, docker_run_args []
 	return
 }
 
-func expand_path(path string) (string, error) {
+func ExpandPath(path string) (string, error) {
     if len(path) == 0 || (path[0] != '~' && path[0] != '.') {
         return path, nil
     }
@@ -441,7 +463,7 @@ func main() {
 	flag.Parse()
 
 	log.Printf("Reading configuration file '%s'", config_file)
-	config_file, _ = expand_path(config_file)
+	config_file, _ = ExpandPath(config_file)
 	
 	// Read-in the configuration file
 	viper.SetConfigType("yaml")
@@ -507,28 +529,28 @@ func main() {
 				docker_run_args := append(viper.GetStringSlice(container_name + ".run"), additional_args...)				
 				
 				// Append the command-line parameters the user provided to the docker run command, to the ones specified within the config file
-				run_docker_run(docker_cmd, container_name, docker_run_args)
+				DockerRun(docker_cmd, container_name, docker_run_args)
 			} else {
 				log.Fatal(Style("No configurations for 'docker run' are present within the config file", COLOR_RED))
 			}
 		case STOPPED:
 			if viper.IsSet(container_name + ".start") {
-				run_docker_start(docker_cmd, container_name, viper.GetStringSlice(container_name + ".start"))
+				DockerStart(docker_cmd, container_name, viper.GetStringSlice(container_name + ".start"))
 			} else {
 				log.Print("The container is stopped, but no configurations for 'docker start' are present within the config file. Defaulting to standard command")
 				if IsIn("-d", viper.GetStringSlice(container_name + ".run")) {
 					// The "run" command specifies detached mode (-d), thus, by default, we do not attach stdin and stdout when doing start
-					run_docker_start(docker_cmd, container_name, []string{container_name})
+					DockerStart(docker_cmd, container_name, []string{container_name})
 				} else {
-					run_docker_start(docker_cmd, container_name, []string{"-ai", container_name})
+					DockerStart(docker_cmd, container_name, []string{"-ai", container_name})
 				}
 			}
 		case RUNNING:
 			if viper.IsSet(container_name + ".exec") {
-				run_docker_exec(docker_cmd, container_name, viper.GetStringSlice(container_name + ".exec"))
+				DockerExec(docker_cmd, container_name, viper.GetStringSlice(container_name + ".exec"))
 			} else {
 				log.Print("The container is already running, but no configurations for 'docker exec' are present within the config file. Defaulting to standard command")
-				run_docker_exec(docker_cmd, container_name, []string{"-ti", container_name, "/bin/bash"})
+				DockerExec(docker_cmd, container_name, []string{"-ti", container_name, "/bin/bash"})
 			}
 	}
 }
