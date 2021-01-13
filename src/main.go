@@ -123,10 +123,11 @@ func prepare_docker_cli_arguments(args []string) ([]string, error) {
 
 func DockerRun(docker_cmd string, container_name string, docker_run_args []string) {
 	log.Printf("Starting docker container '%s'", container_name)
-	docker_run_args = append([]string{"run"}, docker_run_args...)
+	
 
 	// Replace ~ and . within volume definitions
 	prev_conf := ""
+	container_name_was_set := false
 	for i, curr_conf := range docker_run_args {
 		// if previous conf item is a volume definition flag
 		if prev_conf == "-v" || prev_conf == "--volume" {
@@ -153,11 +154,21 @@ func DockerRun(docker_cmd string, container_name string, docker_run_args []strin
 				expanded_path, _ := ExpandPath(curr_conf[path_pos + 4:])
 				docker_run_args[i] = fmt.Sprintf("%ssrc=%s", curr_conf[0:path_pos], expanded_path)
 			}
+		} else if curr_conf == "--name" || strings.HasPrefix(curr_conf, "--name=") {
+			container_name_was_set = true
 		}
 
 		prev_conf = curr_conf
 	}
-	
+
+	if container_name_was_set {
+		// prepend the "run" parameter
+		docker_run_args = append([]string{"run"}, docker_run_args...)
+	} else {
+		// prepend the "run" parameter, and force the container name
+		docker_run_args = append([]string{"run","--name="+container_name}, docker_run_args...)
+	}
+
 	cmd := exec.Command(docker_cmd, docker_run_args...)	
 	// Redirect all input and output of the parent to the child process
 	cmd.Stdout = os.Stdout
