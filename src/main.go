@@ -10,7 +10,6 @@ import (
 	"sort"
 	"bytes"
 	"flag"
-	//"regexp"
 	"path/filepath"
 	"encoding/json"
 	"github.com/mitchellh/go-homedir"
@@ -19,12 +18,15 @@ import (
 )
 
 const (
+	VERSION string = "1.1" // version of the script. To be updated after each sensible update
+	// Common status codes for containers/images
 	MISSING string = "missing"
 	STOPPED string = "stopped"
 	RUNNING string = "running"
 	IMAGE_EXISTING string = "image_existing"
 	ERROR string = "error"
 )
+
 
 func DockerExec(docker_cmd string, container_name string, docker_exec_args []string) {
 	log.Printf("Attaching an additional session to running container '%s'", container_name)
@@ -37,6 +39,7 @@ func DockerExec(docker_cmd string, container_name string, docker_exec_args []str
 	// this is used to be able to read the stderr of the docker command
 	var errb bytes.Buffer	
 	cmd.Stderr = &errb
+	log.Printf("Command line arguments are:\n  %s", strings.Join(cmd.Args," "))
 	err := cmd.Run()
 	switch err.(type) {
 		case nil: // program terminates here in best case
@@ -80,13 +83,13 @@ func DockerStart(docker_cmd string, container_name string, docker_start_args []s
 		case nil: // program terminates here in best case
 		case *exec.Error:
 		// check if the error was raised at the system level, such as if docker is not installed.
-			log.Printf("An error occurred when starting container\nCommand line arguments were:\n%s", strings.Join(cmd.Args," "))
+			log.Printf("An error occurred when starting container\nCommand line arguments were:\n  %s", strings.Join(cmd.Args," "))
 			log.Print(errb.String())
 			log.Fatal(err)
 		case *exec.ExitError:
 			// this is raised id the executed command does not return 0
 			//exitError, _ := err.(*exec.ExitError)			
-			log.Printf("An error occurred when starting container\nCommand line arguments were:\n%s", strings.Join(cmd.Args," "))
+			log.Printf("An error occurred when starting container\nCommand line arguments were:\n  %s", strings.Join(cmd.Args," "))
 			log.Print(errb.String())
 			log.Fatal(err)			
 	}
@@ -178,7 +181,7 @@ func DockerRun(docker_cmd string, container_name string, docker_run_args []strin
 	// cmd.Stderr = os.Stderr
 	cmd.Stderr = &errb
 	
-	log.Printf("Container startup arguments are:\n%s", strings.Join(cmd.Args," "))
+	log.Printf("Container startup arguments are:\n  %s", strings.Join(cmd.Args," "))
 	
 	// execute the command and wait for its completion
 	err := cmd.Run()
@@ -188,7 +191,7 @@ func DockerRun(docker_cmd string, container_name string, docker_run_args []strin
 			// program terminates here in best case
 		case *exec.Error:
 			// check if the error was raised at the system level, such as if docker is not installed.
-			log.Printf("An error occurred when starting container\nCommand line arguments were:\n%s", strings.Join(cmd.Args," "))
+			log.Printf("An error occurred when starting container. Command line arguments were:\n  %s", strings.Join(cmd.Args," "))
 			log.Print(errb.String())
 			log.Fatal(err)
 		case *exec.ExitError:
@@ -276,7 +279,7 @@ func ListConfigs(docker_cmd string) {
 
 func DockerPull(docker_cmd string, image_name string, verbose bool) (err error) {	
 	var outb, errb bytes.Buffer	
-	log.Printf("Pulling image '%s'.\n\tIf this fails, you might have to manually perform 'docker login' or 'docker login <registry>'" , image_name)
+	log.Printf("Pulling image '%s'.\n  If this fails, you might have to manually perform 'docker login' or 'docker login <registry>'" , image_name)
 	cmd := exec.Command(docker_cmd, "image", "pull", image_name)
 	if verbose {
 		// redirect child's process output to StdOut so that user can see it. 
@@ -294,7 +297,7 @@ func DockerPull(docker_cmd string, image_name string, verbose bool) (err error) 
 			return nil
 		case *exec.Error:
 		// check if the error was raised at the system level, such as if docker is not installed.
-			log.Printf("An error occurred when executing 'docker pull'\nCommand line arguments were:\n%s", strings.Join(cmd.Args," "))
+			log.Printf("An error occurred when executing 'docker pull' . Command line arguments were:\n  %s", strings.Join(cmd.Args," "))
 			log.Print(errb.String())
 			log.Fatal(err)
 		case *exec.ExitError:
@@ -302,11 +305,11 @@ func DockerPull(docker_cmd string, image_name string, verbose bool) (err error) 
 			exitError, _ := err.(*exec.ExitError)
 			switch {
 				case exitError.ExitCode() == 1 && strings.Contains(errb.String(), "not found"):
-					log.Printf("Image '%s' not found. Docker wrote:\n\t%s", image_name, errb.String())
+					log.Printf("Image '%s' not found. Docker wrote:\n  %s", image_name, errb.String())
 					log.Fatal(exitError)
 				default:
 					// check if the error was raised at the system level, such as if docker is not installed.
-					log.Printf("An error occurred when executing 'docker pull'\nCommand line arguments were:\n%s", strings.Join(cmd.Args," "))
+					log.Printf("An error occurred when executing 'docker pull'. Command line arguments were:\n  %s", strings.Join(cmd.Args," "))
 					log.Print(errb.String())
 					log.Fatal(exitError)
 			}
@@ -338,7 +341,7 @@ func ImageStatus(docker_cmd string, image_name string, verbose bool) (status str
 			}
 			_, err = jsonpath.Read(inspect_output, "$[0].Created")
 			if err != nil {
-				log.Print("Error when reading 'docker inspect' output")				
+				log.Print("Error when reading 'docker image inspect' output")				
 				log.Fatal(err)
 				return ERROR, err
 			}
@@ -348,7 +351,7 @@ func ImageStatus(docker_cmd string, image_name string, verbose bool) (status str
 			return IMAGE_EXISTING, nil			
 		case *exec.Error:
 		// check if the error was raised at the system level, such as if docker is not installed.
-			log.Printf("An error occurred when executing 'docker inspect'\nCommand line arguments were:\n%s", strings.Join(cmd.Args," "))
+			log.Printf("An error occurred when executing 'docker image inspect'. Command line arguments were:\n  %s", strings.Join(cmd.Args," "))
 			log.Print(errb.String())
 			log.Fatal(err)
 		case *exec.ExitError:
@@ -360,7 +363,7 @@ func ImageStatus(docker_cmd string, image_name string, verbose bool) (status str
 					return MISSING, nil
 				default:
 					// check if the error was raised at the system level, such as if docker is not installed.
-					log.Printf("An error occurred when executing 'docker inspect'\nCommand line arguments were:\n%s", strings.Join(cmd.Args," "))
+					log.Printf("An error occurred when executing 'docker inspect'. Command line arguments were:\n  %s", strings.Join(cmd.Args," "))
 					log.Print(errb.String())
 					log.Fatal(exitError)
 			}
@@ -374,7 +377,7 @@ func ContainerStatus(docker_cmd string, container_name string, verbose bool) (st
 		log.Printf("Retrieving information about container '%s'", container_name)
 	}
 
-	cmd := exec.Command(docker_cmd, "inspect", container_name)
+	cmd := exec.Command(docker_cmd, "container", "inspect", container_name)
 	// Redirect all input and output of the parent to the child process
 	// this is used to be able to read the stdout and stderr of the docker command
 	cmd.Stdout = &outb	
@@ -393,8 +396,8 @@ func ContainerStatus(docker_cmd string, container_name string, verbose bool) (st
 			}
 			is_running, err = jsonpath.Read(inspect_output, "$[0].State.Running")
 			if err != nil {
-				log.Print("Error when reading 'docker inspect' output")
-				log.Print("Is_running = %s", is_running)
+				log.Print("Error when reading 'docker container inspect' output")
+				log.Printf("Is_running = %v", is_running)
 				log.Fatal(err)
 				return ERROR, err
 			} else {
@@ -407,19 +410,19 @@ func ContainerStatus(docker_cmd string, container_name string, verbose bool) (st
 			}
 		case *exec.Error:
 		// check if the error was raised at the system level, such as if docker is not installed.
-			log.Printf("An error occurred when executing 'docker inspect'\nCommand line arguments were:\n%s", strings.Join(cmd.Args," "))
+			log.Printf("An error occurred when executing 'docker container inspect'. Command line arguments were:\n  %s", strings.Join(cmd.Args," "))
 			log.Print(errb.String())
 			log.Fatal(err)
 		case *exec.ExitError:
 			// this is raised id the executed command does not return 0
 			exitError, _ := err.(*exec.ExitError)
 			switch {
-				case exitError.ExitCode() == 1 && strings.Contains(errb.String(), "Error: No such object"):
+				case exitError.ExitCode() == 1 && (strings.Contains(errb.String(), "Error: No such container") || strings.Contains(errb.String(), "Error: No such object")):
 					// the container is missing, need to "run"
 					return MISSING, nil
 				default:
 					// check if the error was raised at the system level, such as if docker is not installed.
-					log.Printf("An error occurred when executing 'docker inspect'\nCommand line arguments were:\n%s", strings.Join(cmd.Args," "))
+					log.Printf("An error occurred when executing 'docker inspect'. Command line arguments were:\n  %s", strings.Join(cmd.Args," "))
 					log.Print(errb.String())
 					log.Fatal(exitError)
 			}
@@ -447,6 +450,7 @@ func main() {
 		default_config_file string
 		config_file string
 		list_configs bool
+		list_version bool
 		additional_args []string
 	)
 	//additional_args := []string{}
@@ -470,8 +474,15 @@ func main() {
 	// https://gobyexample.com/command-line-flags
 	flag.StringVar(&config_file, "c", default_config_file, "`Full path` to a configuration file")
 	flag.BoolVar(&list_configs, "l", false, "If provided, the script lists all the available container definitions and the status of the corresponding container, then exits")
+	flag.BoolVar(&list_version, "v", false, "If provided, print out the script version and then exits")
 	// parse cmd-line parameters
+	
 	flag.Parse()
+
+	if list_version {
+		fmt.Printf("%s version %s\n", os.Args[0], VERSION)
+		return
+	}
 
 	log.Printf("Reading configuration file '%s'", config_file)
 	config_file, _ = ExpandPath(config_file)

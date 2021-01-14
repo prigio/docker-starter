@@ -1,5 +1,12 @@
 # Change log
 
+## 2021-01-14
+
+- Fixed an issue which arises if a container definition is called as a container image: `docker inspect` was analyzing the image status instead of the container. Fixed by specializing the command using respectively: `docker image inspect ...` and `docker container inspect ...`.
+- Improved logging for `docker exec`
+- Added command line parameter `-v` to get script version
+- Makefile: added local development folder to save go libraries downloaded when compiling.
+
 ## 2021-01-12
 
 - Expansion of `.` and `~` in volume configurations is now also supported if the config is all on a single line. (e.g.: `-v=~/exchange`). Close #1

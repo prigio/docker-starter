@@ -12,12 +12,15 @@ WORKDIR=/usr/src/docker-starter
 BUILDSDIR=/usr/local/bin
 VOL_SRC="${PWD}/src:${WORKDIR}"
 VOL_BUILDS="${PWD}/builds:${BUILDSDIR}"
+#the libraries here are populated by the go container itself
+VOL_LIBS="${PWD}/go_build_libs:/go"
 
 default: osx
 
 all: clean pull build_all
 
 clean:
+	@echo "> NOT removing locally saved build libraries in go_build_libs"
 	@echo "> Removing dev container"
 	docker stop ${CONTAINER_NAME} 2>/dev/null | true
 	docker rm ${CONTAINER_NAME} 2>/dev/null | true
@@ -30,20 +33,20 @@ pull:
 
 build_all:
 	@echo "> Compiling executable for all targets within ${BUILDSDIR}/ using src/Makefile"
-	docker run --rm --name ${CONTAINER_NAME} -v ${VOL_SRC} -v ${VOL_BUILDS} -w ${WORKDIR} ${IMAGE_NAME} make all
+	docker run --rm --name ${CONTAINER_NAME} -v ${VOL_SRC} -v ${VOL_BUILDS} -v ${VOL_LIBS} -w ${WORKDIR} ${IMAGE_NAME} make all
 
 osx:
 	@echo "> Compiling executable for OSX within ${BUILDSDIR}/osx/ using src/Makefile"
-	docker run --rm --name ${CONTAINER_NAME} -v ${VOL_SRC} -v ${VOL_BUILDS} -w ${WORKDIR} ${IMAGE_NAME} make osx
+	docker run --rm --name ${CONTAINER_NAME} -v ${VOL_SRC} -v ${VOL_BUILDS} -v ${VOL_LIBS} -w ${WORKDIR} ${IMAGE_NAME} make osx
 
 win:
 	@echo "> Compiling executable for Windows within ${BUILDSDIR}/windows/ using src/Makefile"
-	docker run --rm --name ${CONTAINER_NAME} -v ${VOL_SRC} -v ${VOL_BUILDS} -w ${WORKDIR} ${IMAGE_NAME} make win
+	docker run --rm --name ${CONTAINER_NAME} -v ${VOL_SRC} -v ${VOL_BUILDS} -v ${VOL_LIBS} -w ${WORKDIR} ${IMAGE_NAME} make win
 linux:
 	@echo "> Compiling executable for Linux within ${BUILDSDIR}/linux/ using src/Makefile"
-	docker run --rm --name ${CONTAINER_NAME} -v ${VOL_SRC} -v ${VOL_BUILDS} -w ${WORKDIR} ${IMAGE_NAME} make linux
+	docker run --rm --name ${CONTAINER_NAME} -v ${VOL_SRC} -v ${VOL_BUILDS} -v ${VOL_LIBS} -w ${WORKDIR} ${IMAGE_NAME} make linux
 
 dev:
 	@echo "> Starting interactive container to perform local test"
 	@echo "> You can execute 'go run main.go'"
-	docker run --rm -ti -v ${VOL_SRC} -v ${VOL_BUILDS} -w ${WORKDIR} ${IMAGE_NAME}
+	docker run --rm -ti -v ${VOL_SRC} -v ${VOL_BUILDS} -v ${VOL_LIBS} -w ${WORKDIR} ${IMAGE_NAME}

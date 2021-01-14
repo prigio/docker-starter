@@ -40,6 +40,20 @@ splunk81:
   start:
     - -ai
     - splunk81
+py3:
+  # simple python3 container for development purposes
+  image_name: git.cocus.com:5005/d/py3
+  run:
+    - --rm
+    - -ti
+    - --name=py3
+    - -v=.:/srv
+    - -v=~:/exchange
+    - git.cocus.com:5005/d/py3
+  exec:
+    - -ti
+    - py3
+    - /bin/bash
 ```
 
 ### Important configuration topics:
@@ -60,6 +74,7 @@ The syntax is:
 
 - `-c Full path` : (optional) full path to a configuration file
 - `-l` : (optional) if provided, the script lists all the available container definitions and the status of the corresponding container, then exits
+- `-v` : (optional) ff provided, print out the script version and then exits
 
 ### Examples
 
@@ -104,6 +119,8 @@ The tool:
 
 ## Development
 You need `docker` and `make` available within your system to build this effortlessy: the build system is based on a `golang` container.
+
+A local folder, `g_build_libs`, which is NOT tracked within GIT is used by the go container managed through the Makefile to save the libraries used when compiling. This saves time each time the container is restarted. 
 
 See the `Makefile` for instructions to build.
 
