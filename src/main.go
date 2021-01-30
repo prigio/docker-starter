@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"io/ioutil"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -18,7 +19,7 @@ import (
 )
 
 const (
-	VERSION string = "1.1" // version of the script. To be updated after each sensible update
+	VERSION string = "1.2" // version of the script. To be updated after each sensible update
 	// Common status codes for containers/images
 	MISSING string = "missing"
 	STOPPED string = "stopped"
@@ -451,6 +452,7 @@ func main() {
 		config_file string
 		list_configs bool
 		list_version bool
+		quiet bool
 		additional_args []string
 	)
 	//additional_args := []string{}
@@ -475,6 +477,8 @@ func main() {
 	flag.StringVar(&config_file, "c", default_config_file, "`Full path` to a configuration file")
 	flag.BoolVar(&list_configs, "l", false, "If provided, the script lists all the available container definitions and the status of the corresponding container, then exits")
 	flag.BoolVar(&list_version, "v", false, "If provided, print out the script version and then exits")
+	flag.BoolVar(&quiet, "q", false, "Activate quiet mode: do not emit any internal logging")
+	
 	// parse cmd-line parameters
 	
 	flag.Parse()
@@ -482,6 +486,10 @@ func main() {
 	if list_version {
 		fmt.Printf("%s version %s\n", os.Args[0], VERSION)
 		return
+	}
+
+	if quiet {
+		log.SetOutput(ioutil.Discard)
 	}
 
 	log.Printf("Reading configuration file '%s'", config_file)

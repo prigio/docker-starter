@@ -1,6 +1,9 @@
 # Change log
 
-## 2021-01-14
+## v1.2 - 2021-01-30
+- Added command-line flag `-q` to activate **quiet** mode, which disables the logging of the utility.
+
+## v1.1 - 2021-01-14
 
 - Fixed an issue which arises if a container definition is called as a container image: `docker inspect` was analyzing the image status instead of the container. Fixed by specializing the command using respectively: `docker image inspect ...` and `docker container inspect ...`.
 - Improved logging for `docker exec`
