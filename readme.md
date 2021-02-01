@@ -4,7 +4,6 @@ This is a utility script, especially for Windows systems, to start docker contai
 
 Other than that, this was a good intro to the GO programming language ;-)
 
-
 ## First setup
 
 ### Executables
@@ -72,9 +71,20 @@ The syntax is:
 
 ### Command-line flags
 
-- `-c Full path` : (optional) full path to a configuration file
-- `-l` : (optional) if provided, the script lists all the available container definitions and the status of the corresponding container, then exits
-- `-v` : (optional) ff provided, print out the script version and then exits
+- `-c Full path` : (optional) full path to the configuration file. If not provided, `~/.dockerstarter.yaml` is used;
+- `-l` : (optional) if provided:
+  - _without any additional parameters_: the script lists all the available container definitions and the status of the corresponding container, then exits;
+  - _with the name of a container definition_: the script displays the container status and its configurations;
+- `-quiet` : (optional) Activate quiet mode: do not emit any internal logging;
+- `-version` :if provided, print out the script version and then exits;
+- `-readme` : if provided, print out the complete documentation and then exits.
+
+
+
+	flag.BoolVar(&flagVersion, "version", false, "If provided, print out the script version and then exits")
+	flag.BoolVar(&flagReadme, "readme", false, "")	
+	flag.BoolVar(&flagQuiet, "quiet", false, "")
+	
 
 ### Examples
 
@@ -90,14 +100,30 @@ The syntax is:
 ```
 
 ```bash
-    # start the container definition called "splunk81"
-    docker-starter splunk81
+  # get status of a container and list its configurations.
+  docker-starter -l splunk80
+  
+    > Reading configuration file '~/.dockerstarter'
+    > The container 'splunk80' is running
+    > RUN configurations for the container:
+        docker run
+        -d
+        --name=splunk80
+        --hostname=splunk80-docker
+        -p=38080:8000
+        -v=.:/exchange
+    ....
+```
 
-    # start the container definition called "pagvpn"
-    docker-starter pagvpn
+```bash
+  # start the container definition called "splunk81"
+  docker-starter splunk81
 
-    # start the container definition called "pagvpn" and provide a VPN token code already
-    docker-starter pagvpn 123456
+  # start the container definition called "de-utils"
+  docker-starter de-utils
+
+  # start the container definition called "de-utils" and provide additional startup parameters
+  docker-starter de-utils build.py
 ```
 
 ```bash
@@ -110,9 +136,9 @@ Any command-line parameters after the name of the definition are provided to the
 
 ## Internal working
 The tool:
-- reads the name of the container definition from the command line
-- accesses the configuration file and reads the container definition
-- checks if a container with that name is already existing, and wether its running. 
+- reads the name of the container definition from the command line;
+- accesses the configuration file and reads the container definition;
+- checks if a container with that name is already existing, and whether it is running;
 - if the container does not exist: the `run` command is used; an interactive shell is attached to it and volumes are mounted;
 - if the container exists but is not running: the `start` command is used and a shell is attached to it;
 - if the container exists but is running, the `exec` command is used to attach a new shell inside it.
@@ -120,7 +146,7 @@ The tool:
 ## Development
 You need `docker` and `make` available within your system to build this effortlessy: the build system is based on a `golang` container.
 
-A local folder, `g_build_libs`, which is NOT tracked within GIT is used by the go container managed through the Makefile to save the libraries used when compiling. This saves time each time the container is restarted. 
+A local folder, `go_build_libs`, which is NOT tracked within GIT is used by the go container managed through the Makefile to save the libraries used when compiling. This saves time each time the container is restarted.
 
 See the `Makefile` for instructions to build.
 
@@ -133,4 +159,3 @@ Available make commands:
 - `make linux`: builds the executable for Linux
 - `make clean`: cleans-up old builds
 - `make dev`: launches an interactive golang container to support development.
-

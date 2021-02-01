@@ -1,2 +1,5 @@
 go.sum
 go_build_libs/
+
+# This is a copy of the readme.md in the main repo
+src/readme.md

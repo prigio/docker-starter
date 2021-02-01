@@ -11,6 +11,7 @@ import (
 	"sort"
 	"bytes"
 	"flag"
+	_ "embed"
 	"path/filepath"
 	"encoding/json"
 	"github.com/mitchellh/go-homedir"
@@ -19,7 +20,7 @@ import (
 )
 
 const (
-	VERSION string = "1.2" // version of the script. To be updated after each sensible update
+	VERSION string = "1.3" // version of the script. To be updated after each sensible update
 	// Common status codes for containers/images
 	MISSING string = "missing"
 	STOPPED string = "stopped"
@@ -27,7 +28,11 @@ const (
 	IMAGE_EXISTING string = "image_existing"
 	ERROR string = "error"
 )
-
+// Read the content of the text file and save it within the script.
+// This happens AT COMPILE TIME
+// For this reason the makefile within the repository copies the readme.md to src/ ;-)
+//go:embed readme.md
+var Readme string
 
 func DockerExec(docker_cmd string, container_name string, docker_exec_args []string) {
 	log.Printf("Attaching an additional session to running container '%s'", container_name)
@@ -245,37 +250,66 @@ func ExpandPath(path string) (string, error) {
 		return path, nil
 	}
 }
+
+func ListSingleContainer(docker_cmd string, containerName string) {
+	var configsList []string
+	status, err := ContainerStatus(docker_cmd, containerName, false)
+	if err != nil {
+		log.Fatal(err)
+	}
+	switch status {
+		case MISSING:
+			status = Style(status, COLOR_RED)
+		case STOPPED:
+			status = Style(status, COLOR_YELLOW)
+		case RUNNING:
+			status = Style(status, COLOR_GREEN)
+	}
+	log.Printf("The container '%s' is %s", Style(containerName, COLOR_BOLD), status)
+	configsList = viper.GetStringSlice(containerName + ".run")
+	log.Printf("RUN configurations for the container:\n    %s run\n    %s\n", docker_cmd, strings.Join(configsList, "\n    "))
+
+	if viper.IsSet(containerName + ".exec") {
+		configsList = viper.GetStringSlice(containerName + ".exec")
+		log.Printf("EXEC configurations for the container:\n    %s exec\n    %s\n", docker_cmd, strings.Join(configsList, "\n    "))
+	}
+	if viper.IsSet(containerName + ".start") {
+		configsList = viper.GetStringSlice(containerName + ".start")
+		log.Printf("EXEC configurations for the container:\n    %s start\n    %s\n", docker_cmd, strings.Join(configsList, "\n    "))
+	}
+	return
+}
+
 func ListConfigs(docker_cmd string) {
-		// create empty map of string->boolean
-		statusMap := make(map[string]string)
-		// create slice of strings
-		var definitionsList []string
-		// populate the map of all the available container definitions
-		for _, key := range viper.AllKeys() {
-			// key looks like: 'pagvpn.run', 'pagvpn.exec', 'splunk80.run', ...
-			definition := strings.SplitN(key, ".", 2)[0]
-			if _, ok := statusMap[definition]; ! ok {
-				// get info about container
-				status, err := ContainerStatus(docker_cmd, definition, false); 
-				if err != nil {
-					log.Fatal(err)
-				}
-				switch status {
-					case MISSING:
-						statusMap[definition] = Style(status, COLOR_RED)
-					case STOPPED:
-						statusMap[definition] = Style(status, COLOR_YELLOW)
-					case RUNNING:
-						statusMap[definition] = Style(status, COLOR_GREEN)
-				}
-	
-				definitionsList = append(definitionsList, fmt.Sprintf("%-12s (container status: %s)", definition, statusMap[definition]))
+	// create slice of strings
+	var definitionsList []string
+	// create empty map of string->boolean
+	statusMap := make(map[string]string)
+	// populate the map of all the available container definitions
+	for _, key := range viper.AllKeys() {
+		// key looks like: 'pagvpn.run', 'pagvpn.exec', 'splunk80.run', ...
+		definition := strings.SplitN(key, ".", 2)[0]
+		if _, ok := statusMap[definition]; ! ok {
+			// get info about container
+			status, err := ContainerStatus(docker_cmd, definition, false); 
+			if err != nil {
+				log.Fatal(err)
 			}
+			switch status {
+				case MISSING:
+					statusMap[definition] = Style(status, COLOR_RED)
+				case STOPPED:
+					statusMap[definition] = Style(status, COLOR_YELLOW)
+				case RUNNING:
+					statusMap[definition] = Style(status, COLOR_GREEN)
+			}
+			definitionsList = append(definitionsList, fmt.Sprintf("%-12s (container status: %s)", definition, statusMap[definition]))
 		}
-		// print out the definitions
-		sort.Strings(definitionsList)
-		log.Printf("The available container definitions are:\n  - %s", strings.Join(definitionsList, "\n  - "))		
-		return
+	}
+	// print out the definitions
+	sort.Strings(definitionsList)
+	log.Printf("The available container definitions are:\n  - %s", strings.Join(definitionsList, "\n  - "))
+	return
 } 
 
 func DockerPull(docker_cmd string, image_name string, verbose bool) (err error) {	
@@ -451,17 +485,17 @@ func main() {
 		default_config_file string
 		config_file string
 		list_configs bool
-		list_version bool
-		quiet bool
+		flagVersion bool
+		flagReadme bool
+		flagQuiet bool
 		additional_args []string
 	)
-	//additional_args := []string{}
 	
 	// Remove date&time from logging format
 	//	https://golang.org/pkg/log/#SetFlags
 	log.SetFlags(0)
 	// Prepend a "> " to each output line
-	log.SetPrefix("> ")	
+	log.SetPrefix("> ")
 
 	if runtime.GOOS == "windows" {
 		// in case we are running on windows, the docker executable needs the ".exe" extension
@@ -475,20 +509,23 @@ func main() {
 	// Define command line parameters
 	// https://gobyexample.com/command-line-flags
 	flag.StringVar(&config_file, "c", default_config_file, "`Full path` to a configuration file")
-	flag.BoolVar(&list_configs, "l", false, "If provided, the script lists all the available container definitions and the status of the corresponding container, then exits")
-	flag.BoolVar(&list_version, "v", false, "If provided, print out the script version and then exits")
-	flag.BoolVar(&quiet, "q", false, "Activate quiet mode: do not emit any internal logging")
+	flag.BoolVar(&list_configs, "l", false, "If provided without any additional parameters, the script lists all the available container definitions and the status of the corresponding container, then exits. If provided with the name of a container definition the script displays the container status and its configurations.")
+	flag.BoolVar(&flagVersion, "version", false, "If provided, print out the script version and then exits")
+	flag.BoolVar(&flagReadme, "readme", false, "If provided, print out the complete documentation and then exits")	
+	flag.BoolVar(&flagQuiet, "quiet", false, "Activate quiet mode: do not emit any internal logging")
 	
 	// parse cmd-line parameters
-	
 	flag.Parse()
 
-	if list_version {
+	if flagVersion {
 		fmt.Printf("%s version %s\n", os.Args[0], VERSION)
 		return
 	}
+	if flagReadme {
+		fmt.Println(Readme)
+	}
 
-	if quiet {
+	if flagQuiet {
 		log.SetOutput(ioutil.Discard)
 	}
 
@@ -516,7 +553,11 @@ func main() {
 		}
 	}
 	
-	if list_configs {
+
+	if list_configs && flag.NArg() > 0 {
+		ListSingleContainer(docker_cmd, flag.Arg(0))
+		return
+	} else if list_configs {
 		// the user asked to list all available configurations. Do that and exit
 		ListConfigs(docker_cmd)
 		return

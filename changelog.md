@@ -1,5 +1,13 @@
 # Change log
 
+## v1.3 - 2021-02-01
+- Added possibility to list configuration for one specified container `dockerstarter -l splunk80`
+- Added command-line flag - `-readme` to print the complete documentation.
+- Renamed command-line flags:
+    - `-q` -> `-quiet`
+    - `-v` -> `-version`
+- Updated from golang v1.15 to v1.16.
+
 ## v1.2 - 2021-01-30
 - Added command-line flag `-q` to activate **quiet** mode, which disables the logging of the utility.
 
