@@ -41,18 +41,14 @@ splunk81:
     - splunk81
 py3:
   # simple python3 container for development purposes
-  image_name: git.cocus.com:5005/d/py3
+  image: git.cocus.com:5005/d/py3-dev
   run:
     - --rm
     - -ti
     - --name=py3
     - -v=.:/srv
     - -v=~:/exchange
-    - git.cocus.com:5005/d/py3
-  exec:
-    - -ti
-    - py3
-    - /bin/bash
+    - git.cocus.com:5005/d/py3-dev
 ```
 
 ### Important configuration topics:
