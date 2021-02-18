@@ -21,8 +21,9 @@ all: clean pull build_all
 
 clean:
 	@echo "> NOT removing locally saved build libraries in go_build_libs"
-	@echo "> Removing copy of readme.md from src/ folder"
+	@echo "> Removing copy of readme.md and changelog.md from src/ folder"
 	rm src/readme.md 2>/dev/null
+	rm src/changelog.md 2>/dev/null
 	@echo "> Removing dev container"
 	docker stop ${CONTAINER_NAME} 2>/dev/null | true
 	docker rm ${CONTAINER_NAME} 2>/dev/null | true
@@ -33,32 +34,27 @@ pull:
 	# this command might require a "docker login" to be performed
 	docker pull $(IMAGE_NAME) | true
 
-build_all:
-	@echo "> Copying readme.md to src/ folder"
+prep: 
+	@echo "> Copying readme.md and changelog.md to src/ folder"
 	cp readme.md src/
+	cp changelog.md src/
+
+build_all: prep
 	@echo "> Compiling executable for all targets within ${BUILDSDIR}/ using src/Makefile"
 	docker run --rm --name ${CONTAINER_NAME} -v ${VOL_SRC} -v ${VOL_BUILDS} -v ${VOL_LIBS} -w ${WORKDIR} ${IMAGE_NAME} make all
 
-osx:
-	@echo "> Copying readme.md to src/ folder"
-	cp readme.md src/
+osx: prep
 	@echo "> Compiling executable for OSX within ${BUILDSDIR}/osx/ using src/Makefile"
 	docker run --rm --name ${CONTAINER_NAME} -v ${VOL_SRC} -v ${VOL_BUILDS} -v ${VOL_LIBS} -w ${WORKDIR} ${IMAGE_NAME} make osx
 
-win:
-	@echo "> Copying readme.md to src/ folder"
-	cp readme.md src/
+win: prep
 	@echo "> Compiling executable for Windows within ${BUILDSDIR}/windows/ using src/Makefile"
 	docker run --rm --name ${CONTAINER_NAME} -v ${VOL_SRC} -v ${VOL_BUILDS} -v ${VOL_LIBS} -w ${WORKDIR} ${IMAGE_NAME} make win
-linux:
-	@echo "> Copying readme.md to src/ folder"
-	cp readme.md src/
+linux: prep
 	@echo "> Compiling executable for Linux within ${BUILDSDIR}/linux/ using src/Makefile"
 	docker run --rm --name ${CONTAINER_NAME} -v ${VOL_SRC} -v ${VOL_BUILDS} -v ${VOL_LIBS} -w ${WORKDIR} ${IMAGE_NAME} make linux
 
-dev:
-	@echo "> Copying readme.md to src/ folder"
-	cp readme.md src/
+dev: prep
 	@echo "> Starting interactive container to perform local test"
 	@echo "> You can execute 'go run main.go'"
 	docker run --rm -ti -v ${VOL_SRC} -v ${VOL_BUILDS} -v ${VOL_LIBS} -w ${WORKDIR} ${IMAGE_NAME}

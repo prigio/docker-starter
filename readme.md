@@ -73,14 +73,9 @@ The syntax is:
   - _with the name of a container definition_: the script displays the container status and its configurations;
 - `-quiet` : (optional) Activate quiet mode: do not emit any internal logging;
 - `-version` :if provided, print out the script version and then exits;
-- `-readme` : if provided, print out the complete documentation and then exits.
-
-
-
-	flag.BoolVar(&flagVersion, "version", false, "If provided, print out the script version and then exits")
-	flag.BoolVar(&flagReadme, "readme", false, "")	
-	flag.BoolVar(&flagQuiet, "quiet", false, "")
-	
+- `-readme` : if provided, print out the complete documentation and then exits;
+- `-changelog` : if provided, print out the complete changelog and then exits;
+- `-no-color` : ddisable colored output
 
 ### Examples
 

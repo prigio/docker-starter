@@ -15,13 +15,14 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/fatih/color"
 	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
 	"github.com/yalp/jsonpath"
 )
 
 const (
-	VERSION string = "1.3" // version of the script. To be updated after each sensible update
+	VERSION string = "1.4" // version of the script. To be updated after each sensible update
 	// Common status codes for containers/images
 	MISSING        string = "missing"
 	STOPPED        string = "stopped"
@@ -35,6 +36,32 @@ const (
 // For this reason the makefile within the repository copies the readme.md to src/ ;-)
 //go:embed readme.md
 var Readme string
+
+//go:embed changelog.md
+var ChangeLog string
+
+//functions defining color styles
+var (
+	green  = color.New(color.FgGreen).SprintFunc()
+	yellow = color.New(color.FgYellow).SprintFunc()
+	red    = color.New(color.FgRed).SprintFunc()
+	bold   = color.New(color.Bold).SprintFunc()
+)
+
+// styleStatus analyzes the status of a container
+// and returns a colored stirng string corresponding to it
+func styleStatus(status string) string {
+	switch status {
+	case MISSING:
+		return red(status)
+	case STOPPED:
+		return yellow(status)
+	case RUNNING:
+		return green(status)
+	default:
+		return status
+	}
+}
 
 func DockerExec(docker_cmd string, container_name string, docker_exec_args []string) {
 	log.Printf("Attaching an additional session to running container '%s'", container_name)
@@ -103,34 +130,6 @@ func DockerStart(docker_cmd string, container_name string, docker_start_args []s
 	}
 	return
 }
-
-/*
-func prepare_docker_cli_arguments(args []string) ([]string, error) {
-	if args == nil {
-		return nil, nil
-	} else if len(args) == 0 {
-		return []string{}, nil
-	}
-	// the slice to be returned
-	var prepared_args []string
-
-	prev_conf := ""
-	re := regexp.MustCompile(`^--?[\w_-]+`)
-	for i, arg := range args {
-		// if previous conf item is a volume definition flag
-		// if there are no spaces within the config, it can be returned as is
-		if ! strings.Contains(arg, " ") {
-			prepared_args = append(prepared_args, arg)
-		}
-
-		if prev_conf == "-v" {
-			// replace ~ and . with their local, absolute counterparts
-			docker_run_args[i], _ = ExpandPath(curr_conf)
-		}
-		prev_conf = curr_conf
-	}
-}
-// */
 
 func DockerRun(docker_cmd string, container_name string, docker_run_args []string) {
 	log.Printf("Starting docker container '%s'", container_name)
@@ -258,15 +257,7 @@ func ListSingleContainer(docker_cmd string, containerName string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	switch status {
-	case MISSING:
-		status = Style(status, COLOR_RED)
-	case STOPPED:
-		status = Style(status, COLOR_YELLOW)
-	case RUNNING:
-		status = Style(status, COLOR_GREEN)
-	}
-	log.Printf("The container '%s' is %s", Style(containerName, COLOR_BOLD), status)
+	log.Printf("The container '%s' is %s", bold(containerName), styleStatus(status))
 	configsList = viper.GetStringSlice(containerName + ".run")
 	log.Printf("RUN configurations for the container:\n    %s run\n    %s\n", docker_cmd, strings.Join(configsList, "\n    "))
 
@@ -285,7 +276,7 @@ func ListConfigs(docker_cmd string) {
 	// create slice of strings
 	var definitionsList []string
 	// create empty map of string->boolean
-	statusMap := make(map[string]string)
+	statusMap := make(map[string]bool)
 	// populate the map of all the available container definitions
 	for _, key := range viper.AllKeys() {
 		// key looks like: 'pagvpn.run', 'pagvpn.exec', 'splunk80.run', ...
@@ -296,15 +287,8 @@ func ListConfigs(docker_cmd string) {
 			if err != nil {
 				log.Fatal(err)
 			}
-			switch status {
-			case MISSING:
-				statusMap[definition] = Style(status, COLOR_RED)
-			case STOPPED:
-				statusMap[definition] = Style(status, COLOR_YELLOW)
-			case RUNNING:
-				statusMap[definition] = Style(status, COLOR_GREEN)
-			}
-			definitionsList = append(definitionsList, fmt.Sprintf("%-12s (container status: %s)", definition, statusMap[definition]))
+			statusMap[definition] = true
+			definitionsList = append(definitionsList, fmt.Sprintf("%-12s (container status: %s)", definition, styleStatus(status)))
 		}
 	}
 	// print out the definitions
@@ -488,7 +472,9 @@ func main() {
 		list_configs        bool
 		flagVersion         bool
 		flagReadme          bool
+		flagChangeLog       bool
 		flagQuiet           bool
+		flagNoColor         bool
 		additional_args     []string
 	)
 
@@ -513,19 +499,28 @@ func main() {
 	flag.BoolVar(&list_configs, "l", false, "If provided without any additional parameters, the script lists all the available container definitions and the status of the corresponding container, then exits. If provided with the name of a container definition the script displays the container status and its configurations.")
 	flag.BoolVar(&flagVersion, "version", false, "If provided, print out the script version and then exits")
 	flag.BoolVar(&flagReadme, "readme", false, "If provided, print out the complete documentation and then exits")
+	flag.BoolVar(&flagChangeLog, "changelog", false, "If provided, print out the complete changelog and then exits")
 	flag.BoolVar(&flagQuiet, "quiet", false, "Activate quiet mode: do not emit any internal logging")
+	flag.BoolVar(&flagNoColor, "no-color", false, "Disable colored output")
 
 	// parse cmd-line parameters
 	flag.Parse()
 
+	if flagNoColor {
+		color.NoColor = true // disables colorized output
+	}
 	if flagVersion {
 		fmt.Printf("%s version %s\n", os.Args[0], VERSION)
 		return
 	}
 	if flagReadme {
 		fmt.Println(Readme)
+		return
 	}
-
+	if flagChangeLog {
+		fmt.Println(ChangeLog)
+		return
+	}
 	if flagQuiet {
 		log.SetOutput(ioutil.Discard)
 	}
@@ -602,7 +597,7 @@ func main() {
 			// Append the command-line parameters the user provided to the docker run command, to the ones specified within the config file
 			DockerRun(docker_cmd, container_name, docker_run_args)
 		} else {
-			log.Fatal(Style("No configurations for 'docker run' are present within the config file", COLOR_RED))
+			log.Fatal(red("No configurations for 'docker run' are present within the config file"))
 		}
 	case STOPPED:
 		if viper.IsSet(container_name + ".start") {
