@@ -1,11 +1,15 @@
 # Change log
 
+## v1.5 - 2021-02-18
+- Project moved to <https://github.com>
+- Added config-file syntax to documentation
+- 
 ## v1.4 - 2021-02-18
 - Added `-changelog` command line parameter to print this file out.
 - Removed self-made coloring package which was not working on windows and adopted `https://github.com/fatih/color` instead.
 
 ## v1.3 - 2021-02-01
-- Added possibility to list configuration for one specified container `dockerstarter -l splunk80`
+- Added possibility to list configuration for one specified container. E.g. `docker-starter -l splunk80`
 - Added command-line flag - `-readme` to print the complete documentation.
 - Renamed command-line flags:
     - `-q` -> `-quiet`
@@ -26,7 +30,7 @@
 
 - Expansion of `.` and `~` in volume configurations is now also supported if the config is all on a single line. (e.g.: `-v=~/exchange`). Close #1
 - Expansion of `.` and `~` in volume configurations is now also supported if the config is espressed with the `--mount` format (see <https://docs.docker.com/storage/bind-mounts/>)
-- if the parameters of the `run` config do not contain a name for the container, the name of the configuration is uses as a container name
+- if the parameters of the `run` config do not contain a name for the container, the name of the configuration is used as a container name
 
 ## 2021-01-11 
 
