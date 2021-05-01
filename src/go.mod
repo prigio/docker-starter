@@ -1,4 +1,4 @@
-module git.cocus.com/bigdata/docker-starter
+module github.com/prigio/docker-starter
 
 go 1.16
 

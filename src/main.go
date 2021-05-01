@@ -100,7 +100,6 @@ func DockerExec(docker_cmd string, container_name string, docker_exec_args []str
 			log.Printf("Session terminated. Exit code is %d. %s", exitError.ExitCode(), errb.String())
 		}
 	}
-	return
 }
 
 func DockerStart(docker_cmd string, container_name string, docker_start_args []string) {
@@ -128,7 +127,6 @@ func DockerStart(docker_cmd string, container_name string, docker_start_args []s
 		log.Print(errb.String())
 		log.Fatal(err)
 	}
-	return
 }
 
 func DockerRun(docker_cmd string, container_name string, docker_run_args []string) {
@@ -215,7 +213,6 @@ func DockerRun(docker_cmd string, container_name string, docker_run_args []strin
 		log.Fatal(exitError)
 		//}
 	}
-	return
 }
 
 func ExpandPath(path string) (string, error) {
@@ -269,7 +266,6 @@ func ListSingleContainer(docker_cmd string, containerName string) {
 		configsList = viper.GetStringSlice(containerName + ".start")
 		log.Printf("EXEC configurations for the container:\n    %s start\n    %s\n", docker_cmd, strings.Join(configsList, "\n    "))
 	}
-	return
 }
 
 func ListConfigs(docker_cmd string) {
@@ -294,7 +290,6 @@ func ListConfigs(docker_cmd string) {
 	// print out the definitions
 	sort.Strings(definitionsList)
 	log.Printf("The available container definitions are:\n  - %s", strings.Join(definitionsList, "\n  - "))
-	return
 }
 
 func DockerPull(docker_cmd string, image_name string, verbose bool) (err error) {
@@ -334,7 +329,7 @@ func DockerPull(docker_cmd string, image_name string, verbose bool) (err error) 
 			log.Fatal(exitError)
 		}
 	}
-	return
+	return nil
 }
 
 func ImageStatus(docker_cmd string, image_name string, verbose bool) (status string, err error) {
@@ -451,7 +446,7 @@ func ContainerStatus(docker_cmd string, container_name string, verbose bool) (st
 }
 
 func IsIn(val string, list []string) bool {
-	if list == nil || len(list) == 0 {
+	if len(list) == 0 {
 		return false
 	}
 	for _, v := range list {
