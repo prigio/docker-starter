@@ -1,10 +1,5 @@
 IMAGE_NAME=golang:1.16
 CONTAINER_NAME=golang-dockerstarter
-#Environment settings for cross compilation
-#Ref: https://www.digitalocean.com/community/tutorials/how-to-build-go-executables-for-multiple-platforms-on-ubuntu-16-04
-ENV_OSX=-e GOOS=darwin -e GOARCH=amd64
-ENV_WIN=-e GOOS=windows -e GOARCH=amd64
-ENV_LIN=-e GOOS=linux -e GOARCH=amd64
 #this is there the src files are located, within the container
 #the name of the directory might be used by GO for the name of the executable
 WORKDIR=/usr/src/docker-starter
@@ -50,9 +45,16 @@ osx: prep
 win: prep
 	@echo "> Compiling executable for Windows within ${BUILDSDIR}/windows/ using src/Makefile"
 	docker run --rm --name ${CONTAINER_NAME} -v ${VOL_SRC} -v ${VOL_BUILDS} -v ${VOL_LIBS} -w ${WORKDIR} ${IMAGE_NAME} make win
+
 linux: prep
 	@echo "> Compiling executable for Linux within ${BUILDSDIR}/linux/ using src/Makefile"
 	docker run --rm --name ${CONTAINER_NAME} -v ${VOL_SRC} -v ${VOL_BUILDS} -v ${VOL_LIBS} -w ${WORKDIR} ${IMAGE_NAME} make linux
+
+osxm1: 
+	@echo "> Compiling executable for OSX M1 within ${BUILDSDIR}/osx_m1/ using src/Makefile"
+	docker run --rm --name ${CONTAINER_NAME} -v ${VOL_SRC} -v ${VOL_BUILDS} -v ${VOL_LIBS} -w ${WORKDIR} ${IMAGE_NAME} make osxm1
+
+
 
 dev: prep
 	@echo "> Starting interactive container to perform local test"

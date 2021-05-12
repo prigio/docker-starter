@@ -1,6 +1,7 @@
 #Environment settings for cross compilation
 #Ref: https://www.digitalocean.com/community/tutorials/how-to-build-go-executables-for-multiple-platforms-on-ubuntu-16-04
 ENV_OSX=GOOS=darwin GOARCH=amd64
+ENV_OSXM1=GOOS=darwin GOARCH=arm64
 ENV_WIN=GOOS=windows GOARCH=amd64
 ENV_LIN=GOOS=linux GOARCH=amd64
 #this is where build files are to be stored, within the container.
@@ -9,7 +10,7 @@ BUILDSDIR=/usr/local/bin
 
 default: osx
 
-all: clean win osx linux
+all: clean osx osxm1 linux win
 
 clean:
 	@echo "(container)> Deleting built executables"
@@ -18,6 +19,10 @@ clean:
 osx:
 	@echo "(container)> Compiling executable for OSX within ${BUILDSDIR}/osx/"
 	${ENV_OSX} go build -o ${BUILDSDIR}/osx/
+
+osxm1:
+	@echo "(container)> Compiling executable for OSX M1 within ${BUILDSDIR}/osx_m1/"
+	${ENV_OSXM1} go build -o ${BUILDSDIR}/osx_m1/
 
 win:
 	@echo "(container)> Compiling executable for Windows within ${BUILDSDIR}/windows/"

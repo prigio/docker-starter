@@ -175,6 +175,7 @@ Available make commands:
 - `make pull`: downloads the necessary docker golang container
 - `make all`: performs all the build chain: clean pull build_win build_osx build_linux
 - `make osx`: builds the executable for OSX
+- `make osxm1`: builds the executable for OSX M1 ARM architecture
 - `make win`: builds the executable for Windows
 - `make linux`: builds the executable for Linux
 - `make clean`: cleans-up old builds

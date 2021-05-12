@@ -1,5 +1,10 @@
 # Change log
 
+## v1.5.1 - 2021-05-12
+- Changed default configuration file on linux from to include .yaml extension
+- Refactored variable names so that they conform to golang conventions
+- Added make targets for OSX M1 (arm) architectures
+
 ## v1.5 - 2021-02-18
 - Project moved to <https://github.com>
 - Added config-file syntax to documentation
