@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	VERSION string = "1.4" // version of the script. To be updated after each sensible update
+	VERSION string = "1.5.1" // version of the script. To be updated after each sensible update
 	// Common status codes for containers/images
 	MISSING        string = "missing"
 	STOPPED        string = "stopped"
@@ -63,11 +63,11 @@ func styleStatus(status string) string {
 	}
 }
 
-func DockerExec(docker_cmd string, container_name string, docker_exec_args []string) {
-	log.Printf("Attaching an additional session to running container '%s'", container_name)
+func DockerExec(dockerCmd string, containerName string, docker_exec_args []string) {
+	log.Printf("Attaching an additional session to running container '%s'", containerName)
 	// add "exec" at the beginning of the arguments
 	docker_exec_args = append([]string{"exec"}, docker_exec_args...)
-	cmd := exec.Command(docker_cmd, docker_exec_args...)
+	cmd := exec.Command(dockerCmd, docker_exec_args...)
 	// Redirect all input and output of the parent to the child process
 	cmd.Stdout = os.Stdout
 	cmd.Stdin = os.Stdin
@@ -102,10 +102,10 @@ func DockerExec(docker_cmd string, container_name string, docker_exec_args []str
 	}
 }
 
-func DockerStart(docker_cmd string, container_name string, docker_start_args []string) {
-	log.Printf("Restarting stopped container '%s'", container_name)
+func DockerStart(dockerCmd string, containerName string, docker_start_args []string) {
+	log.Printf("Restarting stopped container '%s'", containerName)
 	docker_start_args = append([]string{"start"}, docker_start_args...)
-	cmd := exec.Command(docker_cmd, docker_start_args...)
+	cmd := exec.Command(dockerCmd, docker_start_args...)
 	// Redirect all input and output of the parent to the child process
 	cmd.Stdout = os.Stdout
 	cmd.Stdin = os.Stdin
@@ -129,12 +129,12 @@ func DockerStart(docker_cmd string, container_name string, docker_start_args []s
 	}
 }
 
-func DockerRun(docker_cmd string, container_name string, docker_run_args []string) {
-	log.Printf("Starting docker container '%s'", container_name)
+func DockerRun(dockerCmd string, containerName string, docker_run_args []string) {
+	log.Printf("Starting docker container '%s'", containerName)
 
 	// Replace ~ and . within volume definitions
 	prev_conf := ""
-	container_name_was_set := false
+	containerName_was_set := false
 	for i, curr_conf := range docker_run_args {
 		// if previous conf item is a volume definition flag
 		if prev_conf == "-v" || prev_conf == "--volume" {
@@ -162,21 +162,21 @@ func DockerRun(docker_cmd string, container_name string, docker_run_args []strin
 				docker_run_args[i] = fmt.Sprintf("%ssrc=%s", curr_conf[0:path_pos], expanded_path)
 			}
 		} else if curr_conf == "--name" || strings.HasPrefix(curr_conf, "--name=") {
-			container_name_was_set = true
+			containerName_was_set = true
 		}
 
 		prev_conf = curr_conf
 	}
 
-	if container_name_was_set {
+	if containerName_was_set {
 		// prepend the "run" parameter
 		docker_run_args = append([]string{"run"}, docker_run_args...)
 	} else {
 		// prepend the "run" parameter, and force the container name
-		docker_run_args = append([]string{"run", "--name=" + container_name}, docker_run_args...)
+		docker_run_args = append([]string{"run", "--name=" + containerName}, docker_run_args...)
 	}
 
-	cmd := exec.Command(docker_cmd, docker_run_args...)
+	cmd := exec.Command(dockerCmd, docker_run_args...)
 	// Redirect all input and output of the parent to the child process
 	cmd.Stdout = os.Stdout
 	cmd.Stdin = os.Stdin
@@ -206,7 +206,7 @@ func DockerRun(docker_cmd string, container_name string, docker_run_args []strin
 			log.Fatal(exitError)
 		} else if strings.Contains(errb.String(), "Conflict.") {
 			// the container is already running, try using the exec command
-			DockerExec(docker, container_name)
+			DockerExec(docker, containerName)
 		} else { // */
 		log.Printf("Unexpected error by executing 'docker run'. Exit code is %d", exitError.ExitCode())
 		log.Print(errb.String())
@@ -248,27 +248,27 @@ func ExpandPath(path string) (string, error) {
 	}
 }
 
-func ListSingleContainer(docker_cmd string, containerName string) {
+func ListSingleContainer(dockerCmd string, containerName string) {
 	var configsList []string
-	status, err := ContainerStatus(docker_cmd, containerName, false)
+	status, err := ContainerStatus(dockerCmd, containerName, false)
 	if err != nil {
 		log.Fatal(err)
 	}
 	log.Printf("The container '%s' is %s", bold(containerName), styleStatus(status))
 	configsList = viper.GetStringSlice(containerName + ".run")
-	log.Printf("RUN configurations for the container:\n    %s run\n    %s\n", docker_cmd, strings.Join(configsList, "\n    "))
+	log.Printf("RUN configurations for the container:\n    %s run\n    %s\n", dockerCmd, strings.Join(configsList, "\n    "))
 
 	if viper.IsSet(containerName + ".exec") {
 		configsList = viper.GetStringSlice(containerName + ".exec")
-		log.Printf("EXEC configurations for the container:\n    %s exec\n    %s\n", docker_cmd, strings.Join(configsList, "\n    "))
+		log.Printf("EXEC configurations for the container:\n    %s exec\n    %s\n", dockerCmd, strings.Join(configsList, "\n    "))
 	}
 	if viper.IsSet(containerName + ".start") {
 		configsList = viper.GetStringSlice(containerName + ".start")
-		log.Printf("EXEC configurations for the container:\n    %s start\n    %s\n", docker_cmd, strings.Join(configsList, "\n    "))
+		log.Printf("EXEC configurations for the container:\n    %s start\n    %s\n", dockerCmd, strings.Join(configsList, "\n    "))
 	}
 }
 
-func ListConfigs(docker_cmd string) {
+func ListConfigs(dockerCmd string) {
 	// create slice of strings
 	var definitionsList []string
 	// create empty map of string->boolean
@@ -279,7 +279,7 @@ func ListConfigs(docker_cmd string) {
 		definition := strings.SplitN(key, ".", 2)[0]
 		if _, ok := statusMap[definition]; !ok {
 			// get info about container
-			status, err := ContainerStatus(docker_cmd, definition, false)
+			status, err := ContainerStatus(dockerCmd, definition, false)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -292,10 +292,10 @@ func ListConfigs(docker_cmd string) {
 	log.Printf("The available container definitions are:\n  - %s", strings.Join(definitionsList, "\n  - "))
 }
 
-func DockerPull(docker_cmd string, image_name string, verbose bool) (err error) {
+func DockerPull(dockerCmd string, image_name string, verbose bool) (err error) {
 	var outb, errb bytes.Buffer
 	log.Printf("Pulling image '%s'.\n  If this fails, you might have to manually perform 'docker login' or 'docker login <registry>'", image_name)
-	cmd := exec.Command(docker_cmd, "image", "pull", image_name)
+	cmd := exec.Command(dockerCmd, "image", "pull", image_name)
 	if verbose {
 		// redirect child's process output to StdOut so that user can see it.
 		cmd.Stdout = os.Stdout
@@ -332,13 +332,13 @@ func DockerPull(docker_cmd string, image_name string, verbose bool) (err error) 
 	return nil
 }
 
-func ImageStatus(docker_cmd string, image_name string, verbose bool) (status string, err error) {
+func ImageStatus(dockerCmd string, image_name string, verbose bool) (status string, err error) {
 	var outb, errb bytes.Buffer
 	if verbose {
 		log.Printf("Retrieving information about image '%s'", image_name)
 	}
 
-	cmd := exec.Command(docker_cmd, "image", "inspect", image_name)
+	cmd := exec.Command(dockerCmd, "image", "inspect", image_name)
 	// Redirect all input and output of the parent to the child process
 	// this is used to be able to read the stdout and stderr of the docker command
 	cmd.Stdout = &outb
@@ -386,13 +386,13 @@ func ImageStatus(docker_cmd string, image_name string, verbose bool) (status str
 	return ERROR, err
 }
 
-func ContainerStatus(docker_cmd string, container_name string, verbose bool) (status string, err error) {
+func ContainerStatus(dockerCmd string, containerName string, verbose bool) (status string, err error) {
 	var outb, errb bytes.Buffer
 	if verbose {
-		log.Printf("Retrieving information about container '%s'", container_name)
+		log.Printf("Retrieving information about container '%s'", containerName)
 	}
 
-	cmd := exec.Command(docker_cmd, "container", "inspect", container_name)
+	cmd := exec.Command(dockerCmd, "container", "inspect", containerName)
 	// Redirect all input and output of the parent to the child process
 	// this is used to be able to read the stdout and stderr of the docker command
 	cmd.Stdout = &outb
@@ -460,17 +460,17 @@ func IsIn(val string, list []string) bool {
 
 func main() {
 	var (
-		docker_cmd          string
-		container_name      string
-		default_config_file string
-		config_file         string
-		list_configs        bool
-		flagVersion         bool
-		flagReadme          bool
-		flagChangeLog       bool
-		flagQuiet           bool
-		flagNoColor         bool
-		additional_args     []string
+		defaultConfigFile string
+		dockerCmd         string
+		containerName     string
+		configFile        string
+		flagListConfigs   bool
+		flagVersion       bool
+		flagReadme        bool
+		flagChangeLog     bool
+		flagQuiet         bool
+		flagNoColor       bool
+		additionalArgs    []string
 	)
 
 	// Remove date&time from logging format
@@ -481,17 +481,17 @@ func main() {
 
 	if runtime.GOOS == "windows" {
 		// in case we are running on windows, the docker executable needs the ".exe" extension
-		docker_cmd = "docker.exe"
-		default_config_file = "~/dockerstarter.yaml"
+		dockerCmd = "docker.exe"
+		defaultConfigFile = "~/dockerstarter.yaml"
 	} else {
-		docker_cmd = "docker"
-		default_config_file = "~/.dockerstarter"
+		dockerCmd = "docker"
+		defaultConfigFile = "~/.dockerstarter.yaml"
 	}
 
 	// Define command line parameters
 	// https://gobyexample.com/command-line-flags
-	flag.StringVar(&config_file, "c", default_config_file, "`Full path` to a configuration file")
-	flag.BoolVar(&list_configs, "l", false, "If provided without any additional parameters, the script lists all the available container definitions and the status of the corresponding container, then exits. If provided with the name of a container definition the script displays the container status and its configurations.")
+	flag.StringVar(&configFile, "c", defaultConfigFile, "`Full path` to a configuration file")
+	flag.BoolVar(&flagListConfigs, "l", false, "If provided without any additional parameters, the script lists all the available container definitions and the status of the corresponding container, then exits. If provided with the name of a container definition the script displays the container status and its configurations.")
 	flag.BoolVar(&flagVersion, "version", false, "If provided, print out the script version and then exits")
 	flag.BoolVar(&flagReadme, "readme", false, "If provided, print out the complete documentation and then exits")
 	flag.BoolVar(&flagChangeLog, "changelog", false, "If provided, print out the complete changelog and then exits")
@@ -520,13 +520,13 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 
-	log.Printf("Reading configuration file '%s'", config_file)
-	config_file, _ = ExpandPath(config_file)
+	log.Printf("Reading configuration file '%s'", configFile)
+	configFile, _ = ExpandPath(configFile)
 
 	// Read-in the configuration file
 	viper.SetConfigType("yaml")
-	viper.SetConfigName(filepath.Base(config_file))
-	config_dir, _ := filepath.Split(config_file)
+	viper.SetConfigName(filepath.Base(configFile))
+	config_dir, _ := filepath.Split(configFile)
 	if config_dir == "" {
 		viper.AddConfigPath(".")
 	} else {
@@ -537,19 +537,19 @@ func main() {
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
 			// Config file not found; ignore error if desired
-			log.Fatalf("Config file '%s' not found", config_file)
+			log.Fatalf("Config file '%s' not found", configFile)
 		} else {
 			// Config file was found but another error was produced
-			log.Fatalf("Fatal error when opening config file: '%s'. %s", config_file, err)
+			log.Fatalf("Fatal error when opening config file: '%s'. %s", configFile, err)
 		}
 	}
 
-	if list_configs && flag.NArg() > 0 {
-		ListSingleContainer(docker_cmd, flag.Arg(0))
+	if flagListConfigs && flag.NArg() > 0 {
+		ListSingleContainer(dockerCmd, flag.Arg(0))
 		return
-	} else if list_configs {
+	} else if flagListConfigs {
 		// the user asked to list all available configurations. Do that and exit
-		ListConfigs(docker_cmd)
+		ListConfigs(dockerCmd)
 		return
 	}
 
@@ -559,59 +559,59 @@ func main() {
 
 	//.Args() is an array of the remaining parameters provided, which do not have a name
 	if flag.NArg() > 1 {
-		additional_args = flag.Args()[1:]
+		additionalArgs = flag.Args()[1:]
 	}
 
-	container_name = flag.Arg(0)
+	containerName = flag.Arg(0)
 
-	//log.Printf("Retrieving information about container '%s'", container_name)
-	status, err := ContainerStatus(docker_cmd, container_name, true)
+	//log.Printf("Retrieving information about container '%s'", containerName)
+	status, err := ContainerStatus(dockerCmd, containerName, true)
 	if err != nil {
 		log.Fatal(err)
 	}
 	switch status {
 	case MISSING:
 		// the container is missing, need to "run"
-		if viper.IsSet(container_name + ".image") {
+		if viper.IsSet(containerName + ".image") {
 			// check if the image is actually available
 			// if not, pull it.
-			image_name := viper.GetString(container_name + ".image")
-			if image_status, err := ImageStatus(docker_cmd, image_name, true); err != nil {
+			image_name := viper.GetString(containerName + ".image")
+			if image_status, err := ImageStatus(dockerCmd, image_name, true); err != nil {
 				log.Fatal("%v", err)
 			} else {
 				if image_status == MISSING {
-					if err := DockerPull(docker_cmd, image_name, true); err != nil {
+					if err := DockerPull(dockerCmd, image_name, true); err != nil {
 						log.Fatal("%v", err)
 					}
 				}
 			}
 		}
-		if viper.IsSet(container_name + ".run") {
-			docker_run_args := append(viper.GetStringSlice(container_name+".run"), additional_args...)
+		if viper.IsSet(containerName + ".run") {
+			docker_run_args := append(viper.GetStringSlice(containerName+".run"), additionalArgs...)
 
 			// Append the command-line parameters the user provided to the docker run command, to the ones specified within the config file
-			DockerRun(docker_cmd, container_name, docker_run_args)
+			DockerRun(dockerCmd, containerName, docker_run_args)
 		} else {
 			log.Fatal(red("No configurations for 'docker run' are present within the config file"))
 		}
 	case STOPPED:
-		if viper.IsSet(container_name + ".start") {
-			DockerStart(docker_cmd, container_name, viper.GetStringSlice(container_name+".start"))
+		if viper.IsSet(containerName + ".start") {
+			DockerStart(dockerCmd, containerName, viper.GetStringSlice(containerName+".start"))
 		} else {
 			log.Print("The container is stopped, but no configurations for 'docker start' are present within the config file. Defaulting to standard command")
-			if IsIn("-d", viper.GetStringSlice(container_name+".run")) {
+			if IsIn("-d", viper.GetStringSlice(containerName+".run")) {
 				// The "run" command specifies detached mode (-d), thus, by default, we do not attach stdin and stdout when doing start
-				DockerStart(docker_cmd, container_name, []string{container_name})
+				DockerStart(dockerCmd, containerName, []string{containerName})
 			} else {
-				DockerStart(docker_cmd, container_name, []string{"-ai", container_name})
+				DockerStart(dockerCmd, containerName, []string{"-ai", containerName})
 			}
 		}
 	case RUNNING:
-		if viper.IsSet(container_name + ".exec") {
-			DockerExec(docker_cmd, container_name, viper.GetStringSlice(container_name+".exec"))
+		if viper.IsSet(containerName + ".exec") {
+			DockerExec(dockerCmd, containerName, viper.GetStringSlice(containerName+".exec"))
 		} else {
 			log.Print("The container is already running, but no configurations for 'docker exec' are present within the config file. Defaulting to standard command")
-			DockerExec(docker_cmd, container_name, []string{"-ti", container_name, "/bin/bash"})
+			DockerExec(dockerCmd, containerName, []string{"-ti", containerName, "/bin/bash"})
 		}
 	}
 }
