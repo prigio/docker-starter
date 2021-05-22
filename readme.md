@@ -19,8 +19,19 @@ A default config file is already provided: [dockerstarter.yaml](src/dockerstarte
 **Syntax of the configuration file.**
 
 ```yaml
+<config-name>:
+  image: <name of the image to be pulled>
+  run: #list of command-line parameters for the 'docker run' command. One on each item
+  exec: #optional, list of command-line parameters for the 'docker exec' command. If not provided, 'docker exec -ti <config-name> /bin/bash' will be used
+<config-name2>: 
+  #....
+```
+
+**A sample configuration file**
+
+```yaml
 alpine: # config name
-  image: <image:tag> 
+  image: alpine:latest
   # command-line parameters for "docker run"
   # `run` is a list of flags or parameters: 
   #   - They are provided AS-IS to the command line, 
@@ -31,58 +42,35 @@ alpine: # config name
   #        -  myfolder:containerfolder
   #   - the `--name` MUST be the same as the config name
   run:
-    - -d
-    - --name=splunk81
-    - --hostname=splunk81
-    - -p=38081:8000
-    - -v=.:/exchange
-    - -e=SPLUNK_START_ARGS=--accept-license
-    - -e=SPLUNK_PASSWORD=splunked
-    - splunk/splunk:8.1.1
-    - # you can also add an additional command here
+    - --rm
+    - -ti
+    # if the --name is not provided, it is set automatically to the name of the config
+    - --name=alpine
+    - -v=.:/srv
+    - --workdir=/srv
+    - alpine:latest
+    # you can also add an additional command here
+    # - some_command
+  
   # command-line parameters for "docker exec". Can be omitted.
   # `exec` is a list of flags or parameters. 
   # If not specified, `-ti <configname> /bin/bash` will be used
   exec:
     - -ti
+    # name of the running container, MUST be same as the definition
     - alpine
     # by default, alpine has no bash
     - /bin/sh 
-  # command-line parameters for "docker start". Can be omitted.
-  # `start` is a list of flags or parameters. 
-  # If not specified, `-ai <configname>` will be used
-  start:
-    - -ai
-    - alpine
-
-centos: #next config name
+#next config name
+centos: 
   image: centos:8
-  # ...
-```
-
-
-A sample configuration is the following, defining the command-line parameters for the most important docker commands: run, exec and start
-
-```yaml
-#Splunk v8.1.1 container
-splunk81:
-  # the explicit name of the image is optional. 
-  # BUT, if you provide it, the tool will try to 'docker pull' the image if missing
-  image: splunk/splunk:8.1.1
   run:
-    - -d
-    - --name=splunk81
-    - -p=8000:8000
-    - -v=.:/srv
-     - -v=.:/exchange
-    - -e=SPLUNK_START_ARGS=--accept-license
-    - -e=SPLUNK_PASSWORD=splunked
-    - splunk/splunk:8.1.1
+    - ...
 ```
 
 ### Important configuration topics:
 
-- The name of the definition and the `--name` parameter of the container **MUST** be the same, otherwise the tool will not find the container anymore.
+- The name of the configuration definition and the `--name` parameter of the container **MUST** be the same, otherwise the tool will not find the container anymore while it is running.
 - As of now, the tool attaches its console's standard-out, -in and -err to the container.
 - If you specify the `image` configuration, the tool will try a `docker pull`
 - Docker configurations can be provided on a single line using format `-x=VALUE` (the `=` sign MUST be there).
@@ -91,9 +79,17 @@ splunk81:
 The syntax is: 
 
 ```bash
-    docker-starter [-c <config-file-name.yaml>] [-l] <container-definition-name> [additional optinal parameters for 'docker run']
+    docker-starter [-c <config-file-name.yaml>] [-l] <config-name> [additional optional parameters for 'docker run']
 ```
 Any command-line parameters after the name of the definition are provided to the container within docker run. 
+
+The tool will: 
+
+1. check if the config-name references a running container.
+2. if running: execute a `docker exec`
+3. if not running, it checks if the referenced container is stopped.
+4. if stopped: execute a `docker start`
+5. if the container is not found, then execute a `docker start`
 
 ### Command-line flags
 
@@ -114,7 +110,7 @@ Any command-line parameters after the name of the definition are provided to the
   # get list of container definitions, and corresponding status
   docker-starter -l
   
-    > Reading configuration file '~/.dockerstarter'
+    > Reading configuration file '~/.dockerstarter.yaml'
     > The available container definitions are:
       - alpine       (container status: running)
       - splunk80     (container status: missing)
