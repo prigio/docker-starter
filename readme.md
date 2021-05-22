@@ -12,7 +12,12 @@ Pre-built executables are contained within the [`builds/` directory](builds/). C
 ### Configuration file
 The utility relies on a configuration file describing which and how a container need to be started. 
 
-**By default**, this file is within your home directory: `~/.dockerstarter.yaml` (on windows: `~\dockerstarter.yaml`). **Note:** the name and path of the configuration file can be altered using the `-c` command line parameter.
+**By default**, this file is within your home directory: 
+
+- on linux: `~/.dockerstarter.yaml`
+- on windows: `~\dockerstarter.yaml` 
+
+**Note:** the name and path of the configuration file can be altered using the `-c` command line parameter.
 
 A default config file is already provided: [dockerstarter.yaml](src/dockerstarter.yaml): you can copy it to your home folder (on Linux/OSX, rename it with as `.dockerstarter.yaml`).
 

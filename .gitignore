@@ -1,6 +1,2 @@
 go.sum
 go_build_libs/
-
-# These are copies of the readme.md and changelog from the root of the repo
-src/readme.md
-src/changelog.md

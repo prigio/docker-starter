@@ -1,27 +1,25 @@
 IMAGE_NAME=golang:1.16
-CONTAINER_NAME=golang-dockerstarter
 #this is there the src files are located, within the container
 #the name of the directory might be used by GO for the name of the executable
 WORKDIR=/usr/src/docker-starter
 #this is where build files are to be stored, within the container
 BUILDSDIR=/usr/local/bin
-VOL_SRC="${PWD}/src:${WORKDIR}"
+VOL_SRC="${PWD}:${WORKDIR}"
 VOL_BUILDS="${PWD}/builds:${BUILDSDIR}"
 #the libraries here are populated by the go container itself
 VOL_LIBS="${PWD}/go_build_libs:/go"
+#Ref: https://www.digitalocean.com/community/tutorials/how-to-build-go-executables-for-multiple-platforms-on-ubuntu-16-04
+
+BUILD_CMD_DOCKER=docker run --rm -v ${VOL_SRC} -v ${VOL_BUILDS} -v ${VOL_LIBS} -e GOOS -e GOARCH -w ${WORKDIR} ${IMAGE_NAME}
+DEV_CMD_DOCKER=docker run --rm -ti -v ${VOL_SRC} -v ${VOL_BUILDS} -v ${VOL_LIBS} -w ${WORKDIR} ${IMAGE_NAME}
 
 default: osx
 
 all: clean pull build_all
 
+build_all: osx linux win osxm1
+
 clean:
-	@echo "> NOT removing locally saved build libraries in go_build_libs"
-	@echo "> Removing copy of readme.md and changelog.md from src/ folder"
-	rm src/readme.md 2>/dev/null
-	rm src/changelog.md 2>/dev/null
-	@echo "> Removing dev container"
-	docker stop ${CONTAINER_NAME} 2>/dev/null | true
-	docker rm ${CONTAINER_NAME} 2>/dev/null | true
 	@echo "> Deleting built executables"
 	find builds/ -type f -delete
 
@@ -29,34 +27,23 @@ pull:
 	# this command might require a "docker login" to be performed
 	docker pull $(IMAGE_NAME) | true
 
-prep: 
-	@echo "> Copying readme.md and changelog.md to src/ folder"
-	cp readme.md src/
-	cp changelog.md src/
+osx:
+	@echo "> Compiling executable for OSX within ${BUILDSDIR}/osx/"
+	GOOS=darwin GOARCH=amd64 ${BUILD_CMD_DOCKER} go build -o ${BUILDSDIR}/osx/
 
-build_all: prep
-	@echo "> Compiling executable for all targets within ${BUILDSDIR}/ using src/Makefile"
-	docker run --rm --name ${CONTAINER_NAME} -v ${VOL_SRC} -v ${VOL_BUILDS} -v ${VOL_LIBS} -w ${WORKDIR} ${IMAGE_NAME} make all
+win:
+	@echo "> Compiling executable for Windows within ${BUILDSDIR}/windows/"
+	GOOS=windows GOARCH=amd64 ${BUILD_CMD_DOCKER} go build -o ${BUILDSDIR}/windows/
 
-osx: prep
-	@echo "> Compiling executable for OSX within ${BUILDSDIR}/osx/ using src/Makefile"
-	docker run --rm --name ${CONTAINER_NAME} -v ${VOL_SRC} -v ${VOL_BUILDS} -v ${VOL_LIBS} -w ${WORKDIR} ${IMAGE_NAME} make osx
-
-win: prep
-	@echo "> Compiling executable for Windows within ${BUILDSDIR}/windows/ using src/Makefile"
-	docker run --rm --name ${CONTAINER_NAME} -v ${VOL_SRC} -v ${VOL_BUILDS} -v ${VOL_LIBS} -w ${WORKDIR} ${IMAGE_NAME} make win
-
-linux: prep
-	@echo "> Compiling executable for Linux within ${BUILDSDIR}/linux/ using src/Makefile"
-	docker run --rm --name ${CONTAINER_NAME} -v ${VOL_SRC} -v ${VOL_BUILDS} -v ${VOL_LIBS} -w ${WORKDIR} ${IMAGE_NAME} make linux
+linux:
+	@echo "> Compiling executable for Linux within ${BUILDSDIR}/linux/"
+	GOOS=linux GOARCH=amd64 ${BUILD_CMD_DOCKER} go build -o ${BUILDSDIR}/linux/
 
 osxm1: 
-	@echo "> Compiling executable for OSX M1 within ${BUILDSDIR}/osx_m1/ using src/Makefile"
-	docker run --rm --name ${CONTAINER_NAME} -v ${VOL_SRC} -v ${VOL_BUILDS} -v ${VOL_LIBS} -w ${WORKDIR} ${IMAGE_NAME} make osxm1
+	@echo "> Compiling executable for OSX M1 within ${BUILDSDIR}/osx_m1/"
+	GOOS=darwin GOARCH=arm64 ${BUILD_CMD_DOCKER} go build -o ${BUILDSDIR}/osx_m1/
 
-
-
-dev: prep
+dev:
 	@echo "> Starting interactive container to perform local test"
 	@echo "> You can execute 'go run main.go'"
-	docker run --rm -ti -v ${VOL_SRC} -v ${VOL_BUILDS} -v ${VOL_LIBS} -w ${WORKDIR} ${IMAGE_NAME}
+	${DEV_CMD_DOCKER}
