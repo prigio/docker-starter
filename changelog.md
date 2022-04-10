@@ -1,4 +1,11 @@
-# Change log
+Change log
+==========
+
+## v2.0.0 - 2022-05-12
+- Tool renamed to `startainer` to account for possibility to use different runtimes other than `docker`.
+- New functionalities: 
+    - config file: added `settings.runtime` to specify alternate container runtime.
+    - config file: added `<containerdefinition>.message` to print a custom message to the user after starting a container. 
 
 ## v1.5.1 - 2021-05-12
 - Changed default configuration file on linux from to include .yaml extension

@@ -1,7 +1,7 @@
 IMAGE_NAME=golang:1.16
 #this is there the src files are located, within the container
 #the name of the directory might be used by GO for the name of the executable
-WORKDIR=/usr/src/docker-starter
+WORKDIR=/usr/src/startainer
 #this is where build files are to be stored, within the container
 BUILDSDIR=/usr/local/bin
 VOL_SRC="${PWD}:${WORKDIR}"

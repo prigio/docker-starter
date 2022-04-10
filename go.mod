@@ -1,4 +1,4 @@
-module github.com/prigio/docker-starter
+module github.com/prigio/startainer
 
 go 1.16
 

@@ -45,6 +45,7 @@ var (
 	green  = color.New(color.FgGreen).SprintFunc()
 	yellow = color.New(color.FgYellow).SprintFunc()
 	red    = color.New(color.FgRed).SprintFunc()
+	blue   = color.New(color.FgBlue).SprintFunc()
 	bold   = color.New(color.Bold).SprintFunc()
 )
 
@@ -63,15 +64,15 @@ func styleStatus(status string) string {
 	}
 }
 
-func DockerExec(dockerCmd string, containerName string, docker_exec_args []string) {
+func ContainerExec(containerManagerCmd string, containerName string, exec_args []string) {
 	log.Printf("Attaching an additional session to running container '%s'", containerName)
 	// add "exec" at the beginning of the arguments
-	docker_exec_args = append([]string{"exec"}, docker_exec_args...)
-	cmd := exec.Command(dockerCmd, docker_exec_args...)
+	exec_args = append([]string{"exec"}, exec_args...)
+	cmd := exec.Command(containerManagerCmd, exec_args...)
 	// Redirect all input and output of the parent to the child process
 	cmd.Stdout = os.Stdout
 	cmd.Stdin = os.Stdin
-	// this is used to be able to read the stderr of the docker command
+	// this is used to be able to read the stderr of the container manager command
 	var errb bytes.Buffer
 	cmd.Stderr = &errb
 	log.Printf("Command line arguments are:\n  %s", strings.Join(cmd.Args, " "))
@@ -79,7 +80,7 @@ func DockerExec(dockerCmd string, containerName string, docker_exec_args []strin
 	switch err.(type) {
 	case nil: // program terminates here in best case
 	case *exec.Error:
-		// check if the error was raised at the system level, such as if docker is not installed.
+		// check if the error was raised at the system level, such as if the container manager is not installed.
 		log.Printf("An error occurred when executing container\nCommand line arguments were:\n%s", strings.Join(cmd.Args, " "))
 		log.Print(errb.String())
 		log.Fatal(err)
@@ -102,21 +103,24 @@ func DockerExec(dockerCmd string, containerName string, docker_exec_args []strin
 	}
 }
 
-func DockerStart(dockerCmd string, containerName string, docker_start_args []string) {
+func ContainerStart(containerManagerCmd string, containerName string, start_args []string, message string) {
 	log.Printf("Restarting stopped container '%s'", containerName)
-	docker_start_args = append([]string{"start"}, docker_start_args...)
-	cmd := exec.Command(dockerCmd, docker_start_args...)
+	start_args = append([]string{"start"}, start_args...)
+	cmd := exec.Command(containerManagerCmd, start_args...)
 	// Redirect all input and output of the parent to the child process
 	cmd.Stdout = os.Stdout
 	cmd.Stdin = os.Stdin
-	// this is used to be able to read the stderr of the docker command
+	// this is used to be able to read the stderr of the container manager command
 	var errb bytes.Buffer
 	cmd.Stderr = &errb
+	if message != "" {
+		log.Print(blue(message))
+	}
 	err := cmd.Run()
 	switch err.(type) {
 	case nil: // program terminates here in best case
 	case *exec.Error:
-		// check if the error was raised at the system level, such as if docker is not installed.
+		// check if the error was raised at the system level, such as if container manager is not installed.
 		log.Printf("An error occurred when starting container\nCommand line arguments were:\n  %s", strings.Join(cmd.Args, " "))
 		log.Print(errb.String())
 		log.Fatal(err)
@@ -129,26 +133,26 @@ func DockerStart(dockerCmd string, containerName string, docker_start_args []str
 	}
 }
 
-func DockerRun(dockerCmd string, containerName string, docker_run_args []string) {
-	log.Printf("Starting docker container '%s'", containerName)
+func ContainerRun(containerManagerCmd string, containerName string, run_args []string, message string) {
+	log.Printf("Starting container '%s'", containerName)
 
 	// Replace ~ and . within volume definitions
 	prev_conf := ""
 	containerName_was_set := false
-	for i, curr_conf := range docker_run_args {
+	for i, curr_conf := range run_args {
 		// if previous conf item is a volume definition flag
 		if prev_conf == "-v" || prev_conf == "--volume" {
 			// replace ~ and . with their local, absolute counterparts
-			docker_run_args[i], _ = ExpandPath(curr_conf)
+			run_args[i], _ = ExpandPath(curr_conf)
 		} else if strings.HasPrefix(curr_conf, "-v=") || strings.HasPrefix(curr_conf, "-v ") {
 			// format of config: '-v=host-path:container-path' or '-v host-path:container-path'
 			expanded_path, _ := ExpandPath(curr_conf[3:])
-			docker_run_args[i] = fmt.Sprintf("-v=%s", expanded_path)
+			run_args[i] = fmt.Sprintf("-v=%s", expanded_path)
 		} else if strings.HasPrefix(curr_conf, "--volume=") || strings.HasPrefix(curr_conf, "--volume ") {
 			// format of config: '-v=host-path:container-path' or '-v host-path:container-path'
 			expanded_path, _ := ExpandPath(curr_conf[9:])
 			// force the current config to use the format --conf=val to avoid having empty spaces within it
-			docker_run_args[i] = fmt.Sprintf("--volume=%s", expanded_path)
+			run_args[i] = fmt.Sprintf("--volume=%s", expanded_path)
 		} else if prev_conf == "--mount" || strings.HasPrefix(curr_conf, "--mount=") || strings.HasPrefix(curr_conf, "--mount ") {
 			if strings.HasPrefix(curr_conf, "--mount ") {
 				// replace the empty space with the = sign
@@ -156,10 +160,10 @@ func DockerRun(dockerCmd string, containerName string, docker_run_args []string)
 			}
 			if path_pos := strings.Index(curr_conf, "source="); path_pos >= 0 {
 				expanded_path, _ := ExpandPath(curr_conf[path_pos+7:])
-				docker_run_args[i] = fmt.Sprintf("%ssource=%s", curr_conf[0:path_pos], expanded_path)
+				run_args[i] = fmt.Sprintf("%ssource=%s", curr_conf[0:path_pos], expanded_path)
 			} else if path_pos := strings.Index(curr_conf, "src="); path_pos >= 0 {
 				expanded_path, _ := ExpandPath(curr_conf[path_pos+4:])
-				docker_run_args[i] = fmt.Sprintf("%ssrc=%s", curr_conf[0:path_pos], expanded_path)
+				run_args[i] = fmt.Sprintf("%ssrc=%s", curr_conf[0:path_pos], expanded_path)
 			}
 		} else if curr_conf == "--name" || strings.HasPrefix(curr_conf, "--name=") {
 			containerName_was_set = true
@@ -170,23 +174,25 @@ func DockerRun(dockerCmd string, containerName string, docker_run_args []string)
 
 	if containerName_was_set {
 		// prepend the "run" parameter
-		docker_run_args = append([]string{"run"}, docker_run_args...)
+		run_args = append([]string{"run"}, run_args...)
 	} else {
 		// prepend the "run" parameter, and force the container name
-		docker_run_args = append([]string{"run", "--name=" + containerName}, docker_run_args...)
+		run_args = append([]string{"run", "--name=" + containerName}, run_args...)
 	}
 
-	cmd := exec.Command(dockerCmd, docker_run_args...)
+	cmd := exec.Command(containerManagerCmd, run_args...)
 	// Redirect all input and output of the parent to the child process
 	cmd.Stdout = os.Stdout
 	cmd.Stdin = os.Stdin
-	// this is used to be able to read the stderr of the docker command
+	// this is used to be able to read the stderr of the container manager command
 	var errb bytes.Buffer
 	// cmd.Stderr = os.Stderr
 	cmd.Stderr = &errb
 
 	log.Printf("Container startup arguments are:\n  %s", strings.Join(cmd.Args, " "))
-
+	if message != "" {
+		log.Print(blue(message))
+	}
 	// execute the command and wait for its completion
 	err := cmd.Run()
 	// check for errors, depending by their type
@@ -194,8 +200,8 @@ func DockerRun(dockerCmd string, containerName string, docker_run_args []string)
 	case nil:
 		// program terminates here in best case
 	case *exec.Error:
-		// check if the error was raised at the system level, such as if docker is not installed.
-		log.Printf("An error occurred when starting container. Command line arguments were:\n  %s", strings.Join(cmd.Args, " "))
+		// check if the error was raised at the system level, such as if container manager is not installed.
+		log.Printf("An error occurred when running container. Command line arguments were:\n  %s", strings.Join(cmd.Args, " "))
 		log.Print(errb.String())
 		log.Fatal(err)
 	case *exec.ExitError:
@@ -206,9 +212,9 @@ func DockerRun(dockerCmd string, containerName string, docker_run_args []string)
 			log.Fatal(exitError)
 		} else if strings.Contains(errb.String(), "Conflict.") {
 			// the container is already running, try using the exec command
-			DockerExec(docker, containerName)
+			ContainerExec(containerManagerCmd, containerName)
 		} else { // */
-		log.Printf("Unexpected error by executing 'docker run'. Exit code is %d", exitError.ExitCode())
+		log.Printf("Unexpected error by executing '%s run'. Exit code is %d", containerManagerCmd, exitError.ExitCode())
 		log.Print(errb.String())
 		log.Fatal(exitError)
 		//}
@@ -248,27 +254,27 @@ func ExpandPath(path string) (string, error) {
 	}
 }
 
-func ListSingleContainer(dockerCmd string, containerName string) {
+func ListSingleContainer(containerManagerCmd string, containerName string) {
 	var configsList []string
-	status, err := ContainerStatus(dockerCmd, containerName, false)
+	status, err := ContainerStatus(containerManagerCmd, containerName, false)
 	if err != nil {
 		log.Fatal(err)
 	}
 	log.Printf("The container '%s' is %s", bold(containerName), styleStatus(status))
 	configsList = viper.GetStringSlice(containerName + ".run")
-	log.Printf("RUN configurations for the container:\n    %s run\n    %s\n", dockerCmd, strings.Join(configsList, "\n    "))
+	log.Printf("RUN configurations for the container:\n    %s run\n    %s\n", containerManagerCmd, strings.Join(configsList, "\n    "))
 
 	if viper.IsSet(containerName + ".exec") {
 		configsList = viper.GetStringSlice(containerName + ".exec")
-		log.Printf("EXEC configurations for the container:\n    %s exec\n    %s\n", dockerCmd, strings.Join(configsList, "\n    "))
+		log.Printf("EXEC configurations for the container:\n    %s exec\n    %s\n", containerManagerCmd, strings.Join(configsList, "\n    "))
 	}
 	if viper.IsSet(containerName + ".start") {
 		configsList = viper.GetStringSlice(containerName + ".start")
-		log.Printf("EXEC configurations for the container:\n    %s start\n    %s\n", dockerCmd, strings.Join(configsList, "\n    "))
+		log.Printf("EXEC configurations for the container:\n    %s start\n    %s\n", containerManagerCmd, strings.Join(configsList, "\n    "))
 	}
 }
 
-func ListConfigs(dockerCmd string) {
+func ListConfigs(containerManagerCmd string) {
 	// create slice of strings
 	var definitionsList []string
 	// create empty map of string->boolean
@@ -277,14 +283,18 @@ func ListConfigs(dockerCmd string) {
 	for _, key := range viper.AllKeys() {
 		// key looks like: 'pagvpn.run', 'pagvpn.exec', 'splunk80.run', ...
 		definition := strings.SplitN(key, ".", 2)[0]
-		if _, ok := statusMap[definition]; !ok {
-			// get info about container
-			status, err := ContainerStatus(dockerCmd, definition, false)
-			if err != nil {
-				log.Fatal(err)
+		// "settings" is not a container definition, but configs for the environment
+		// therefore is excluded from analysis
+		if definition != "settings" {
+			if _, ok := statusMap[definition]; !ok {
+				// get info about container
+				status, err := ContainerStatus(containerManagerCmd, definition, false)
+				if err != nil {
+					log.Fatal(err)
+				}
+				statusMap[definition] = true
+				definitionsList = append(definitionsList, fmt.Sprintf("%-12s (container status: %s)", definition, styleStatus(status)))
 			}
-			statusMap[definition] = true
-			definitionsList = append(definitionsList, fmt.Sprintf("%-12s (container status: %s)", definition, styleStatus(status)))
 		}
 	}
 	// print out the definitions
@@ -292,10 +302,10 @@ func ListConfigs(dockerCmd string) {
 	log.Printf("The available container definitions are:\n  - %s", strings.Join(definitionsList, "\n  - "))
 }
 
-func DockerPull(dockerCmd string, image_name string, verbose bool) (err error) {
+func ImagePull(containerManagerCmd string, image_name string, verbose bool) (err error) {
 	var outb, errb bytes.Buffer
-	log.Printf("Pulling image '%s'.\n  If this fails, you might have to manually perform 'docker login' or 'docker login <registry>'", image_name)
-	cmd := exec.Command(dockerCmd, "image", "pull", image_name)
+	log.Printf("Pulling image '%s'.\n  If this fails, you might have to manually perform '%s login' or '%s login <registry>'", image_name, containerManagerCmd, containerManagerCmd)
+	cmd := exec.Command(containerManagerCmd, "image", "pull", image_name)
 	if verbose {
 		// redirect child's process output to StdOut so that user can see it.
 		cmd.Stdout = os.Stdout
@@ -303,7 +313,7 @@ func DockerPull(dockerCmd string, image_name string, verbose bool) (err error) {
 		// keep stdout internal
 		cmd.Stdout = &outb
 	}
-	// this is used to be able to read stderr of the docker command
+	// this is used to be able to read stderr of the container manager command
 	cmd.Stderr = &errb
 	err = cmd.Run()
 	switch err.(type) {
@@ -311,8 +321,8 @@ func DockerPull(dockerCmd string, image_name string, verbose bool) (err error) {
 		log.Print("Image downloaded")
 		return nil
 	case *exec.Error:
-		// check if the error was raised at the system level, such as if docker is not installed.
-		log.Printf("An error occurred when executing 'docker pull' . Command line arguments were:\n  %s", strings.Join(cmd.Args, " "))
+		// check if the error was raised at the system level, such as if container manager is not installed.
+		log.Printf("An error occurred when executing '%s pull'. Command line arguments were:\n  %s", containerManagerCmd, strings.Join(cmd.Args, " "))
 		log.Print(errb.String())
 		log.Fatal(err)
 	case *exec.ExitError:
@@ -323,8 +333,8 @@ func DockerPull(dockerCmd string, image_name string, verbose bool) (err error) {
 			log.Printf("Image '%s' not found. Docker wrote:\n  %s", image_name, errb.String())
 			log.Fatal(exitError)
 		default:
-			// check if the error was raised at the system level, such as if docker is not installed.
-			log.Printf("An error occurred when executing 'docker pull'. Command line arguments were:\n  %s", strings.Join(cmd.Args, " "))
+			// check if the error was raised at the system level, such as if container manager is not installed.
+			log.Printf("An error occurred when executing '%s pull'. Command line arguments were:\n  %s", containerManagerCmd, strings.Join(cmd.Args, " "))
 			log.Print(errb.String())
 			log.Fatal(exitError)
 		}
@@ -332,15 +342,15 @@ func DockerPull(dockerCmd string, image_name string, verbose bool) (err error) {
 	return nil
 }
 
-func ImageStatus(dockerCmd string, image_name string, verbose bool) (status string, err error) {
+func ImageStatus(containerManagerCmd string, image_name string, verbose bool) (status string, err error) {
 	var outb, errb bytes.Buffer
 	if verbose {
 		log.Printf("Retrieving information about image '%s'", image_name)
 	}
 
-	cmd := exec.Command(dockerCmd, "image", "inspect", image_name)
+	cmd := exec.Command(containerManagerCmd, "image", "inspect", image_name)
 	// Redirect all input and output of the parent to the child process
-	// this is used to be able to read the stdout and stderr of the docker command
+	// this is used to be able to read the stdout and stderr of the container manager command
 	cmd.Stdout = &outb
 	cmd.Stderr = &errb
 	err = cmd.Run()
@@ -350,13 +360,13 @@ func ImageStatus(dockerCmd string, image_name string, verbose bool) (status stri
 		var inspect_output interface{}
 		err = json.Unmarshal(outb.Bytes(), &inspect_output)
 		if err != nil {
-			log.Print("Impossible to convert output of 'docker inspect' to Json")
+			log.Printf("Impossible to convert output of '%s inspect' to Json", containerManagerCmd)
 			log.Fatal(err)
 			return ERROR, err
 		}
 		_, err = jsonpath.Read(inspect_output, "$[0].Created")
 		if err != nil {
-			log.Print("Error when reading 'docker image inspect' output")
+			log.Printf("Error when reading '%s image inspect' output", containerManagerCmd)
 			log.Fatal(err)
 			return ERROR, err
 		}
@@ -365,8 +375,8 @@ func ImageStatus(dockerCmd string, image_name string, verbose bool) (status stri
 		}
 		return IMAGE_EXISTING, nil
 	case *exec.Error:
-		// check if the error was raised at the system level, such as if docker is not installed.
-		log.Printf("An error occurred when executing 'docker image inspect'. Command line arguments were:\n  %s", strings.Join(cmd.Args, " "))
+		// check if the error was raised at the system level, such as if container manager is not installed.
+		log.Printf("An error occurred when executing '%s image inspect'. Command line arguments were:\n  %s", containerManagerCmd, strings.Join(cmd.Args, " "))
 		log.Print(errb.String())
 		log.Fatal(err)
 	case *exec.ExitError:
@@ -377,8 +387,8 @@ func ImageStatus(dockerCmd string, image_name string, verbose bool) (status stri
 			// the image is missing
 			return MISSING, nil
 		default:
-			// check if the error was raised at the system level, such as if docker is not installed.
-			log.Printf("An error occurred when executing 'docker inspect'. Command line arguments were:\n  %s", strings.Join(cmd.Args, " "))
+			// check if the error was raised at the system level, such as if container manager is not installed.
+			log.Printf("An error occurred when executing '%s inspect'. Command line arguments were:\n  %s", containerManagerCmd, strings.Join(cmd.Args, " "))
 			log.Print(errb.String())
 			log.Fatal(exitError)
 		}
@@ -386,15 +396,15 @@ func ImageStatus(dockerCmd string, image_name string, verbose bool) (status stri
 	return ERROR, err
 }
 
-func ContainerStatus(dockerCmd string, containerName string, verbose bool) (status string, err error) {
+func ContainerStatus(containerManagerCmd string, containerName string, verbose bool) (status string, err error) {
 	var outb, errb bytes.Buffer
 	if verbose {
 		log.Printf("Retrieving information about container '%s'", containerName)
 	}
 
-	cmd := exec.Command(dockerCmd, "container", "inspect", containerName)
+	cmd := exec.Command(containerManagerCmd, "container", "inspect", containerName)
 	// Redirect all input and output of the parent to the child process
-	// this is used to be able to read the stdout and stderr of the docker command
+	// this is used to be able to read the stdout and stderr of the container manager command
 	cmd.Stdout = &outb
 	cmd.Stderr = &errb
 	err = cmd.Run()
@@ -405,13 +415,13 @@ func ContainerStatus(dockerCmd string, containerName string, verbose bool) (stat
 		var is_running interface{}
 		err = json.Unmarshal(outb.Bytes(), &inspect_output)
 		if err != nil {
-			log.Print("Impossible to convert output of 'docker inspect' to Json")
+			log.Printf("Impossible to convert output of '%s inspect' to Json", containerManagerCmd)
 			log.Fatal(err)
 			return ERROR, err
 		}
 		is_running, err = jsonpath.Read(inspect_output, "$[0].State.Running")
 		if err != nil {
-			log.Print("Error when reading 'docker container inspect' output")
+			log.Printf("Error when reading '%s container inspect' output", containerManagerCmd)
 			log.Printf("Is_running = %v", is_running)
 			log.Fatal(err)
 			return ERROR, err
@@ -424,8 +434,8 @@ func ContainerStatus(dockerCmd string, containerName string, verbose bool) (stat
 			}
 		}
 	case *exec.Error:
-		// check if the error was raised at the system level, such as if docker is not installed.
-		log.Printf("An error occurred when executing 'docker container inspect'. Command line arguments were:\n  %s", strings.Join(cmd.Args, " "))
+		// check if the error was raised at the system level, such as if container manager is not installed.
+		log.Printf("An error occurred when executing '%s container inspect'. Command line arguments were:\n  %s", containerManagerCmd, strings.Join(cmd.Args, " "))
 		log.Print(errb.String())
 		log.Fatal(err)
 	case *exec.ExitError:
@@ -436,8 +446,8 @@ func ContainerStatus(dockerCmd string, containerName string, verbose bool) (stat
 			// the container is missing, need to "run"
 			return MISSING, nil
 		default:
-			// check if the error was raised at the system level, such as if docker is not installed.
-			log.Printf("An error occurred when executing 'docker inspect'. Command line arguments were:\n  %s", strings.Join(cmd.Args, " "))
+			// check if the error was raised at the system level, such as if container manager is not installed.
+			log.Printf("An error occurred when executing '%s inspect'. Command line arguments were:\n  %s", containerManagerCmd, strings.Join(cmd.Args, " "))
 			log.Print(errb.String())
 			log.Fatal(exitError)
 		}
@@ -460,17 +470,17 @@ func IsIn(val string, list []string) bool {
 
 func main() {
 	var (
-		defaultConfigFile string
-		dockerCmd         string
-		containerName     string
-		configFile        string
-		flagListConfigs   bool
-		flagVersion       bool
-		flagReadme        bool
-		flagChangeLog     bool
-		flagQuiet         bool
-		flagNoColor       bool
-		additionalArgs    []string
+		defaultConfigFile   string
+		containerManagerCmd string
+		containerName       string
+		configFile          string
+		flagListConfigs     bool
+		flagVersion         bool
+		flagReadme          bool
+		flagChangeLog       bool
+		flagQuiet           bool
+		flagNoColor         bool
+		additionalArgs      []string
 	)
 
 	// Remove date&time from logging format
@@ -480,12 +490,12 @@ func main() {
 	log.SetPrefix("> ")
 
 	if runtime.GOOS == "windows" {
-		// in case we are running on windows, the docker executable needs the ".exe" extension
-		dockerCmd = "docker.exe"
-		defaultConfigFile = "~/dockerstarter.yaml"
+		// in case we are running on windows, the container manager executable needs the ".exe" extension
+		containerManagerCmd = "docker.exe"
+		defaultConfigFile = "~/startainer.yaml"
 	} else {
-		dockerCmd = "docker"
-		defaultConfigFile = "~/.dockerstarter.yaml"
+		containerManagerCmd = "docker"
+		defaultConfigFile = "~/.startainer.yaml"
 	}
 
 	// Define command line parameters
@@ -544,12 +554,26 @@ func main() {
 		}
 	}
 
+	// Check if the runtime setting is present within the configuration file.
+	// The setting can be used to replace the standard docker with, for instance, podman.
+	// However, the new container manager MUST implement the same command-line behavior of docker
+	// because this tool relies on the command-line to issue commands.
+	if viper.IsSet("settings.runtime") && viper.GetString("settings.runtime") != "docker" && viper.GetString("settings.runtime") != "docker.exe" {
+		containerManagerCmd = viper.GetString("settings.runtime")
+
+		if runtime.GOOS == "windows" && !strings.HasSuffix(containerManagerCmd, ".exe") {
+			// in case we are running on windows, the container manager executable needs the ".exe" extension
+			containerManagerCmd = containerManagerCmd + ".exe"
+		}
+		log.Printf("Set %s as container runtime", containerManagerCmd)
+	}
+
 	if flagListConfigs && flag.NArg() > 0 {
-		ListSingleContainer(dockerCmd, flag.Arg(0))
+		ListSingleContainer(containerManagerCmd, flag.Arg(0))
 		return
 	} else if flagListConfigs {
 		// the user asked to list all available configurations. Do that and exit
-		ListConfigs(dockerCmd)
+		ListConfigs(containerManagerCmd)
 		return
 	}
 
@@ -565,7 +589,7 @@ func main() {
 	containerName = flag.Arg(0)
 
 	//log.Printf("Retrieving information about container '%s'", containerName)
-	status, err := ContainerStatus(dockerCmd, containerName, true)
+	status, err := ContainerStatus(containerManagerCmd, containerName, true)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -576,42 +600,42 @@ func main() {
 			// check if the image is actually available
 			// if not, pull it.
 			image_name := viper.GetString(containerName + ".image")
-			if image_status, err := ImageStatus(dockerCmd, image_name, true); err != nil {
+			if image_status, err := ImageStatus(containerManagerCmd, image_name, true); err != nil {
 				log.Fatal("%v", err)
 			} else {
 				if image_status == MISSING {
-					if err := DockerPull(dockerCmd, image_name, true); err != nil {
+					if err := ImagePull(containerManagerCmd, image_name, true); err != nil {
 						log.Fatal("%v", err)
 					}
 				}
 			}
 		}
 		if viper.IsSet(containerName + ".run") {
-			docker_run_args := append(viper.GetStringSlice(containerName+".run"), additionalArgs...)
+			run_args := append(viper.GetStringSlice(containerName+".run"), additionalArgs...)
 
-			// Append the command-line parameters the user provided to the docker run command, to the ones specified within the config file
-			DockerRun(dockerCmd, containerName, docker_run_args)
+			// Append the command-line parameters the user provided to the container manager run command, to the ones specified within the config file
+			ContainerRun(containerManagerCmd, containerName, run_args, viper.GetString(containerName+".message"))
 		} else {
-			log.Fatal(red("No configurations for 'docker run' are present within the config file"))
+			log.Fatal(red("No configurations for '%s run' are present within the config file", containerManagerCmd))
 		}
 	case STOPPED:
 		if viper.IsSet(containerName + ".start") {
-			DockerStart(dockerCmd, containerName, viper.GetStringSlice(containerName+".start"))
+			ContainerStart(containerManagerCmd, containerName, viper.GetStringSlice(containerName+".start"), viper.GetString(containerName+".message"))
 		} else {
-			log.Print("The container is stopped, but no configurations for 'docker start' are present within the config file. Defaulting to standard command")
+			log.Printf("The container is stopped, but no configurations for '%s start' are present within the config file. Defaulting to standard command", containerManagerCmd)
 			if IsIn("-d", viper.GetStringSlice(containerName+".run")) {
 				// The "run" command specifies detached mode (-d), thus, by default, we do not attach stdin and stdout when doing start
-				DockerStart(dockerCmd, containerName, []string{containerName})
+				ContainerStart(containerManagerCmd, containerName, []string{containerName}, viper.GetString(containerName+".message"))
 			} else {
-				DockerStart(dockerCmd, containerName, []string{"-ai", containerName})
+				ContainerStart(containerManagerCmd, containerName, []string{"-ai", containerName}, viper.GetString(containerName+".message"))
 			}
 		}
 	case RUNNING:
 		if viper.IsSet(containerName + ".exec") {
-			DockerExec(dockerCmd, containerName, viper.GetStringSlice(containerName+".exec"))
+			ContainerExec(containerManagerCmd, containerName, viper.GetStringSlice(containerName+".exec"))
 		} else {
-			log.Print("The container is already running, but no configurations for 'docker exec' are present within the config file. Defaulting to standard command")
-			DockerExec(dockerCmd, containerName, []string{"-ti", containerName, "/bin/bash"})
+			log.Printf("The container is already running, but no configurations for '%s exec' are present within the config file. Defaulting to standard command", containerManagerCmd)
+			ContainerExec(containerManagerCmd, containerName, []string{"-ti", containerName, "/bin/bash"})
 		}
 	}
 }
