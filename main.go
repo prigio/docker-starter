@@ -275,31 +275,32 @@ func ListSingleContainer(containerManagerCmd string, containerName string) {
 }
 
 func ListConfigs(containerManagerCmd string) {
-	// create slice of strings
-	var definitionsList []string
 	// create empty map of string->boolean
 	statusMap := make(map[string]bool)
 	// populate the map of all the available container definitions
-	for _, key := range viper.AllKeys() {
+	containerDefinitions := viper.AllKeys()
+	sort.Strings(containerDefinitions)
+	log.Print("The available container definitions are:")
+	for _, key := range containerDefinitions {
 		// key looks like: 'pagvpn.run', 'pagvpn.exec', 'splunk80.run', ...
 		definition := strings.SplitN(key, ".", 2)[0]
 		// "settings" is not a container definition, but configs for the environment
 		// therefore is excluded from analysis
 		if definition != "settings" {
+			// if this definition has not been analyzed yet
 			if _, ok := statusMap[definition]; !ok {
 				// get info about container
 				status, err := ContainerStatus(containerManagerCmd, definition, false)
 				if err != nil {
 					log.Fatal(err)
 				}
+				// tracks that this definition was already printed out
 				statusMap[definition] = true
-				definitionsList = append(definitionsList, fmt.Sprintf("%-12s (container status: %s)", definition, styleStatus(status)))
+				// print out the definition
+				log.Printf("  - %-15s (container status: %s)", definition, styleStatus(status))
 			}
 		}
 	}
-	// print out the definitions
-	sort.Strings(definitionsList)
-	log.Printf("The available container definitions are:\n  - %s", strings.Join(definitionsList, "\n  - "))
 }
 
 func ImagePull(containerManagerCmd string, image_name string, verbose bool) (err error) {
@@ -376,14 +377,17 @@ func ImageStatus(containerManagerCmd string, image_name string, verbose bool) (s
 		return IMAGE_EXISTING, nil
 	case *exec.Error:
 		// check if the error was raised at the system level, such as if container manager is not installed.
-		log.Printf("An error occurred when executing '%s image inspect'. Command line arguments were:\n  %s", containerManagerCmd, strings.Join(cmd.Args, " "))
+		log.Printf("A system error occurred when executing '%s image inspect'. Command line arguments were:\n  %s", containerManagerCmd, strings.Join(cmd.Args, " "))
 		log.Print(errb.String())
 		log.Fatal(err)
 	case *exec.ExitError:
 		// this is raised id the executed command does not return 0
 		exitError, _ := err.(*exec.ExitError)
 		switch {
-		case exitError.ExitCode() == 1 && (strings.Contains(errb.String(), "Error: No such image") || strings.Contains(errb.String(), "Error: No such object")):
+		case // docker
+			(exitError.ExitCode() == 1 && (strings.Contains(errb.String(), "Error: No such image") || strings.Contains(errb.String(), "Error: No such object"))) ||
+				// podman
+				(exitError.ExitCode() == 125 && (strings.Contains(errb.String(), "image not known") || strings.Contains(errb.String(), "failed to find image"))):
 			// the image is missing
 			return MISSING, nil
 		default:
@@ -435,19 +439,32 @@ func ContainerStatus(containerManagerCmd string, containerName string, verbose b
 		}
 	case *exec.Error:
 		// check if the error was raised at the system level, such as if container manager is not installed.
-		log.Printf("An error occurred when executing '%s container inspect'. Command line arguments were:\n  %s", containerManagerCmd, strings.Join(cmd.Args, " "))
+		log.Printf("System-error occurred when executing '%s container inspect'. Command line arguments were:\n  %s", containerManagerCmd, strings.Join(cmd.Args, " "))
 		log.Print(errb.String())
 		log.Fatal(err)
 	case *exec.ExitError:
 		// this is raised id the executed command does not return 0
 		exitError, _ := err.(*exec.ExitError)
 		switch {
-		case exitError.ExitCode() == 1 && (strings.Contains(errb.String(), "Error: No such container") || strings.Contains(errb.String(), "Error: No such object")):
+		/*
+			docker container inspect <name>
+				returns in case of missing container:
+					return value: 1
+					stderr: Error: No such container: <name>
+			docker container inspect <name>
+				returns in case of missing container:
+					return value: 125
+					stderr: Error: error inspecting object: no such container "<name>"
+		*/
+		case // docker
+			(exitError.ExitCode() == 1 && (strings.Contains(errb.String(), "Error: No such container") || strings.Contains(errb.String(), "no such object"))) ||
+				// podman
+				(exitError.ExitCode() == 125 && strings.Contains(errb.String(), "no such container")):
 			// the container is missing, need to "run"
 			return MISSING, nil
 		default:
 			// check if the error was raised at the system level, such as if container manager is not installed.
-			log.Printf("An error occurred when executing '%s inspect'. Command line arguments were:\n  %s", containerManagerCmd, strings.Join(cmd.Args, " "))
+			log.Printf("An error occurred when executing '%s container inspect'. Command line arguments were:\n  %s", containerManagerCmd, strings.Join(cmd.Args, " "))
 			log.Print(errb.String())
 			log.Fatal(exitError)
 		}

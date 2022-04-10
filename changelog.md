@@ -1,7 +1,10 @@
 Change log
 ==========
 
-## v2.0.0 - 2022-05-12
+## v2.0.1 - 2022-04-10
+Fixes for podman runtime execution. It looks like `alias podman=docker` is not true when it comes to error messages and exit codes.
+
+## v2.0.0 - 2022-04-10 
 - Tool renamed to `startainer` to account for possibility to use different runtimes other than `docker`.
 - New functionalities: 
     - config file: added `settings.runtime` to specify alternate container runtime.
