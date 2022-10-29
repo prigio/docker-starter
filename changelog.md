@@ -1,6 +1,9 @@
 Change log
 ==========
 
+## v2.0.1 - 2022-10-29
+Added description for bash-completion to readme.md.
+
 ## v2.0.1 - 2022-04-10
 Fixes for podman runtime execution. It looks like `alias podman=docker` is not true when it comes to error messages and exit codes.
 

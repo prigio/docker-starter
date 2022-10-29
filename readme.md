@@ -142,6 +142,22 @@ alpine: # config name
 - Run/Exec configurations can be provided on a single line using format `-x=VALUE` (the `=` sign MUST be there).
 
 
+### Bash Completion
+
+If you want to type even less – assuming `bash-completion` is already installed on your system – create the file
+`/etc/bash_completion.d/startainer.bash` and add the following:
+
+```
+_startainer()
+{
+    COMPREPLY=($(egrep  "^[a-z]" ~/.startainer.yaml | cut -d: -f1))
+}
+
+complete -F _startainer startainer
+```
+
+**Note:** The last word in the file (here: `startainer`) has to match the name of your binary. So if you followed along, it could be `cs` or `dstart` instead.
+
 
 Usage
 -----
