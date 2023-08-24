@@ -48,6 +48,17 @@ settings:
   exec: #optional, list of command-line parameters for the 'docker exec' command. If not provided, 'docker exec -ti <config-name> /bin/bash' will be used
 <config-name2>: 
   #....
+
+<docker-compose-name>:
+  message: This gets printed-out to the user just before "compose up". It is useful to communicate stuff like mapped ports and shared volumes.
+  # path to the compose yaml file
+  compose: ~/path/to/compose/file/docker-compose.yml
+  up: #list of command-line parameters for the "compose up" command. One on each item. Example
+    - -d
+    - --wait
+    - --wait-timeout
+    - 45
+
 ```
 
 **A sample configuration file**
@@ -90,6 +101,14 @@ centos:
   image: centos:8
   run:
     - ...
+
+myawesomecomposeproject:
+  message: "Some message to be printed when starting the stack"
+  # path to the compose yaml file
+  compose: ~/myawesomecomposeproject/docker-compose.yml
+  # optional list of parameters to be provided to the "compose up" command
+  up:
+    - -d
 ```
 
 **A sample configuration file using the podman container manager**
@@ -137,10 +156,10 @@ alpine: # config name
 ### Important configuration topics:
 
 - The name of the configuration definition and the `--name` parameter of the container **MUST** be the same, otherwise the tool will not find the container anymore while it is running.
-- As of now, the tool attaches its console's standard-out, -in and -err to the container.
+- When starting a container, the tool attaches its console's standard-out, -in and -err to the "docker run" command.
+- When starting a docker compose stack, the tool attaches its console's standard-out, -in and -err to the "compose up" command.
 - If you specify the `image` configuration, the tool will try a `docker pull` (or `podman pull` if you set a different runtime)
-- Run/Exec configurations can be provided on a single line using format `-x=VALUE` (the `=` sign MUST be there).
-
+- Container run/exec configurations can be provided on a single line using format `-x=VALUE` (the `=` sign MUST be there).
 
 
 Usage
@@ -148,18 +167,25 @@ Usage
 The syntax is: 
 
 ```bash
-    startainer [-c <config-file-name.yaml>] [-l] <config-name> [additional optional parameters for the 'run' command]
+    startainer [-c <config-file-name.yaml>] [-l] <config-name> [additional optional parameters for the 'run'  or 'up' command]
 ```
 
-Any command-line parameters after the name of the definition are provided to the container through the `run` command. 
+Any command-line parameters after the name of the definition are provided to the container through the `run` or `up` command. 
 
 The tool will: 
 
-1. check if the config-name references a running container.
-2. if running: execute a `docker exec` (or `podman exec` if you configured such runtime)
-3. if not running, it checks if the referenced container is stopped.
-4. if stopped: execute a `docker start` (or `podman start` if you configured such runtime)
-5. if the container is not found, then execute a `docker run` (or `podman run` if you configured such runtime)
+1. check wheter the config-name references a container or compose definition
+2. if container:
+    1. checks the status of the container: missing, stopped, running.
+    2. if running: execute a `docker exec` (or `podman exec` if you configured such runtime)
+    3. if not running, it checks if the referenced container is stopped.
+    4. if stopped: execute a `docker start` (or `podman start` if you configured such runtime)
+    5. if the container is not found, then execute a `docker run` (or `podman run` if you configured such runtime)
+3. if docker compose definition:
+    1. checks whether the compose stack is: missing, stopped, running.
+    2. if running: do nothing
+    3. if stopped: execute a `docker compose up`, which will restart the existing containers
+    4. if missing, execute a `docker compose up`, which will startup the containers
 
 ### Command-line flags
 
