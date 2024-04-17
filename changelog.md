@@ -1,8 +1,8 @@
 Change log
 ==========
 
-## v2.0.1 - 2022-10-29
-Added description for bash-completion to readme.md.
+## v3.0.0 - 2023-04-23
+Added support for `docker compose` stacks.
 
 ## v2.0.1 - 2022-04-10
 Fixes for podman runtime execution. It looks like `alias podman=docker` is not true when it comes to error messages and exit codes.

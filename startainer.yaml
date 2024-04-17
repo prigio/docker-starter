@@ -33,3 +33,11 @@ alpine:
     - -ti
     - alpine
     - /bin/bash
+
+composeexample:
+  message: "Some message to be printed when starting the stack"
+  # path to the compose yaml file
+  compose: ~/tmp/myawesomecomposeproject/docker-compose.yml
+  # optional list of parameters to be provided to the "compose up" command
+  up:
+    - -d
